@@ -13,3 +13,9 @@ sudo chmod +x /usr/local/bin/qksetup
 sudo curl -fsSL -o /usr/local/bin/qkgit https://raw.githubusercontent.com/comchienlab/linux-setup/main/qkgit.sh
 sudo chmod +x /usr/local/bin/qkgit
 ```
+
+- install Quick Git script as `qkcommit` command
+```sh
+sudo curl -fsSL -o /usr/local/bin/qkcommit https://raw.githubusercontent.com/comchienlab/linux-setup/main/qkcommit.sh
+sudo chmod +x /usr/local/bin/qkcommit
+```
