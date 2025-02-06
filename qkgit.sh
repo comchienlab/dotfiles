@@ -48,13 +48,13 @@ case $choice in
     "Commit with Default Message")
         # Predefined commit messages
         commit_message=$(gum choose \
-            "feat: :sparkles: - add new feature" \
-            "fix: :bug: - bug fix" \
-            "docs: :book: - documentation changes" \
-            "style: :art: - formatting changes" \
-            "refactor: :recycle: - code refactoring" \
-            "test: :white_check_mark: - add/update tests" \
-            "chore: :wrench: - maintenance tasks")
+            "feat: :sparkles: - add new feature." \
+            "fix: :bug: - bug fix." \
+            "docs: :book: - documentation changes." \
+            "style: :art: - formatting changes." \
+            "refactor: :recycle: - code refactoring." \
+            "test: :white_check_mark: - add/update tests." \
+            "chore: :wrench: - maintenance tasks.")
 
         # Show changes to be committed
         gum style --foreground 220 "Changes to be committed:"
