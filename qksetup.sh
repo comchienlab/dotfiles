@@ -5,8 +5,8 @@ JAVA_VERSION="17.0.13-amzn"  # Amazon Corretto 17.0.13
 MAVEN_VERSION="3.9.9"        # Maven 3.9.9
 NODE_VERSION="18"            # Node.js v18 (via Volta)
 YARN_VERSION="1"             # Yarn v1
-ZSHRC_CONFIG="https://gist.githubusercontent.com/ryanphanrp/56d600d3613c187dde9aa5a13bcffdea/raw/.zshrc"
-STARSHIP_CONFIG="https://gist.githubusercontent.com/ryanphanrp/56d600d3613c187dde9aa5a13bcffdea/raw/starship.toml"
+ZSHRC_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/.config/.zshrc"
+STARSHIP_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/.config/starship.toml"
 
 # Check if `gum` is installed, if not install it
 if ! command -v gum &> /dev/null; then
@@ -50,7 +50,7 @@ case $choice in
         git clone https://github.com/zsh-users/zsh-autosuggestions ~/.zsh/zsh-autosuggestions
         gum style --foreground 46 "Cloning zsh-syntax-highlighting repository..."
         git clone https://github.com/zsh-users/zsh-syntax-highlighting ~/.zsh/zsh-syntax-highlighting
-        
+
         # Install Git
         gum style --foreground 46 "Installing Git..."
         sudo apt install git
@@ -106,10 +106,10 @@ case $choice in
         # Print selected tools
         echo "You selected the following tools for installation:"
         echo "$apps"
-        
+
         # Convert the tools string into an array
         IFS=$'\n' read -rd '' -a app_array <<< "$apps"
-        
+
         # Loop through each selected tool and install it
         for app in "${app_array[@]}"; do
             case "$app" in
@@ -125,7 +125,7 @@ case $choice in
                     xdg-settings set default-web-browser google-chrome.desktop
                     cd -
                     ;;
-                
+
                 "Local Send")
                     # Install Local Send
                     gum style --foreground 46 "Installing Local Send..."
@@ -136,7 +136,7 @@ case $choice in
                     rm localsend.deb
                     cd -
                     ;;
-                    
+
                 "VSCode")
                     # Install VSCode
                     gum style --foreground 46 "Installing VSCode..."
@@ -156,13 +156,13 @@ case $choice in
                     sudo snap install intellij-idea-ultimate --classic
                     gum style --foreground 46 "Installed IDEA."
                     ;;
-                
+
                 "Install DataGrip")
                     gum style --foreground 46 "Installing DataGrip..."
                     sudo snap install datagrip --classic
                     gum style --foreground 46 "Installed DataGrip."
                     ;;
-                
+
                 "Spotify")
                     # Install Spotify
                     gum style --foreground 46 "Installing Spotify..."
@@ -171,7 +171,7 @@ case $choice in
                     sudo apt update
                     sudo apt install -y spotify-client
                     ;;
-                
+
                 "Other")
                     gum style --foreground 46 "Installing gnome-tweak-tool, gnome-sushi, fzf, ripgrep, bat, eza, zoxide, plocate, btop, apache2-utils, fd-find, tldr..."
                     sudo apt install -y gnome-tweak-tool
@@ -262,10 +262,10 @@ case $choice in
         # Print selected tools
         echo "You selected the following tools for installation:"
         echo "$tools"
-        
+
         # Convert the tools string into an array
         IFS=$'\n' read -rd '' -a tool_array <<< "$tools"
-        
+
         # Loop through each selected tool and install it
         for tool in "${tool_array[@]}"; do
             case "$tool" in
@@ -279,7 +279,7 @@ case $choice in
                         gum style --foreground 196 "SDKMAN is already installed."
                     fi
                     ;;
-                
+
                 "Install Java (Amazon Corretto 17.0.13)")
                     if $SDKMAN_INSTALLED; then
                         gum style --foreground 46 "Installing Java (Amazon Corretto 17.0.13)..."
@@ -288,7 +288,7 @@ case $choice in
                         gum style --foreground 196 "SDKMAN is not installed. Please install SDKMAN first."
                     fi
                     ;;
-                
+
                 "Install Maven (3.9.9)")
                     if $SDKMAN_INSTALLED; then
                         gum style --foreground 46 "Installing Maven (3.9.9)..."
@@ -297,7 +297,7 @@ case $choice in
                         gum style --foreground 196 "SDKMAN is not installed. Please install SDKMAN first."
                     fi
                     ;;
-                
+
                 "Install Volta")
                     gum style --foreground 46 "Installing Volta..."
                     curl https://get.volta.sh | bash
@@ -321,7 +321,7 @@ case $choice in
                     rm lazydocker.tar.gz lazydocker
                     cd -
                     ;;
-                
+
                 "Install Node.js (v18 via FNM)")
                     if command -v volta &> /dev/null; then
                         gum style --foreground 46 "Installing Node.js (v18)..."
@@ -331,7 +331,7 @@ case $choice in
                         gum style --foreground 196 "Volta is not installed. Install Volta first."
                     fi
                     ;;
-                
+
                 "Install Yarn (v1)")
                     if command -v volta &> /dev/null; then
                         gum style --foreground 46 "Installing Yarn (v1)..."
@@ -340,7 +340,7 @@ case $choice in
                         gum style --foreground 196 "Volta is not installed. Install Volta first."
                     fi
                     ;;
-                
+
                 "Install Docker & Docker Compose")
                     gum style --foreground 46 "Installing Docker & Docker Compose..."
                     gum style --foreground 46 "Setting up Docker repository and key..."
