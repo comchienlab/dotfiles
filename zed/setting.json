@@ -40,6 +40,11 @@
   },
   "ui_font_family": "JetBrains Mono",
   "buffer_font_family": "Geist Mono",
+  "terminal": {
+    "font_family": "JetBrainsMono Nerd Font",
+    "font_size": 12,
+    "cursor_shape": "bar"
+  },
   "buffer_font_weight": 500,
   "ui_font_size": 14,
   "buffer_font_size": 14,
