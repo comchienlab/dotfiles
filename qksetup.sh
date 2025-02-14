@@ -95,6 +95,7 @@ case $choice in
                     "Spotify" \
                     "Install IDEA" \
                     "Install DataGrip"\
+                    "Install Zed" \
                     "Other")
 
         # If no tools selected, show a warning
@@ -158,14 +159,18 @@ case $choice in
                     ;;
 
                 "Install DataGrip")
-                    gum style --foreground 46 "Installing DataGrip..."
-                    sudo snap install datagrip --classic
+                    gum spin --spinner dot --title "Installing DataGrip..." -- sudo snap install datagrip --classic
                     gum style --foreground 46 "Installed DataGrip."
                     ;;
 
-                "Spotify")
+                "Install Zed")
+                    gum spin --spinner dot --title "Installing Zed...." --show-output false -- curl -f https://zed.dev/install.sh | sh
+                    gum style --foreground 46 "Installed Zed."
+                    ;;
+
+                "Install Spotify")
                     # Install Spotify
-                    gum style --foreground 46 "Installing Spotify..."
+                    gum style --foreground --border --align center 46 "Installing Spotify..."
                     curl -sS https://download.spotify.com/debian/pubkey_6224F9941A8AA6D1.gpg | sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
                     echo "deb [signed-by=/etc/apt/trusted.gpg.d/spotify.gpg] http://repository.spotify.com stable non-free" | sudo tee /etc/apt/sources.list.d/spotify.list
                     sudo apt update
