@@ -27,7 +27,7 @@ case $choice in
         gum style --foreground 220 "Git Status:"
         git status --short | gum format
         ;;
-    
+
     "Checkout Another Branch")
         # List branches and allow user to select one with better filtering
         gum style --foreground 220 "Loading branches..."
@@ -37,24 +37,24 @@ case $choice in
             # Strip off "remotes/" if selected from remote branches
             branch=$(echo "$branch" | sed 's/^\s*remotes\/origin\///')
             gum confirm "Checkout branch: $branch?" && {
-                gum spin --spinner dot --title "Switching branches..." -- git checkout "$branch" || 
+                gum spin --spinner dot --title "Switching branches..." -- git checkout "$branch" ||
                 gum style --foreground 196 "Failed to checkout branch."
             }
         else
             gum style --foreground 196 "No branch selected."
         fi
         ;;
-    
+
     "Commit with Default Message")
         # Predefined commit messages
         commit_message=$(gum choose \
-            "feat: :sparkles: - add new feature." \
-            "fix: :bug: - bug fix." \
-            "docs: :book: - documentation changes." \
-            "style: :art: - formatting changes." \
-            "refactor: :recycle: - code refactoring." \
-            "test: :white_check_mark: - add/update tests." \
-            "chore: :wrench: - maintenance tasks.")
+            "feat(:fire:): :sparkles: - add new feature." \
+            "fix(:fire:): :bug: - bug fix." \
+            "docs(:fire:): :book: - documentation changes." \
+            "style(:fire:): :art: - formatting changes." \
+            "refactor(:fire:): :recycle: - code refactoring." \
+            "test(:fire:): :white_check_mark: - add/update tests." \
+            "chore(:fire:): :wrench: - maintenance tasks.")
 
         # Show changes to be committed
         gum style --foreground 220 "Changes to be committed:"
@@ -84,7 +84,7 @@ case $choice in
             gum style --foreground 46 "Successfully pulled latest changes."
         }
         ;;
-    
+
     "Pull from Origin/Develop and Merge")
         gum confirm "Pull from origin/develop and merge?" && {
             gum spin --spinner dot --title "Pulling changes..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false merge origin/develop
@@ -96,7 +96,7 @@ case $choice in
         # Show pretty git log with pagination
         git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit | gum pager
         ;;
-    
+
     *)
         gum style --foreground 196 "Invalid choice. Exiting."
         exit 1
