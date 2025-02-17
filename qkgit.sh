@@ -87,6 +87,7 @@ case $choice in
 
     "Pull from Origin/Develop and Merge")
         gum confirm "Pull from origin/develop and merge?" && {
+            gum spin --spinner dot --title "Fetching from origin..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false fetch origin --recurse-submodules=no --progress --prune
             gum spin --spinner dot --title "Pulling changes..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false merge origin/develop
             gum style --foreground 46 "Successfully pulled from origin/develop."
         }
