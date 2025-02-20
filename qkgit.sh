@@ -222,7 +222,7 @@ case $choice in
                	--border double \
                 --width 50\
                	--border-foreground "#16a085" \
-           	    --padding "1 4" \
+           	    --padding "1 5" \
                	--margin "1" \
                 "🚀🚀🚀 Changes committed and pushed to $current_branch successfully."
             }
