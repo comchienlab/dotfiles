@@ -192,8 +192,8 @@ case $choice in
         zone=$(gum input --placeholder "zone/scope")
 
         # Input commit description
-        gum style --foreground 99 "Enter commit description:"
-        description=$(gum input --placeholder "Enter short description..." --width 50)
+        gum style --foreground "#8e44ad" "Enter commit description:"
+        description=$(gum input --placeholder "Enter short description..." --width 256)
 
         # Construct commit message
         commit_message="$commit_type($zone): $emoji - $description."
@@ -203,14 +203,14 @@ case $choice in
         git diff --cached --name-status | gum format
 
         # Preview commit message
-        gum style --foreground 214 "Commit message preview:"
-        gum style --border double --padding "0 1" "$commit_message"
+        gum style --foreground "#8e44ad" "Commit message preview:"
+        gum style --foreground "#2980b9" "$commit_message"
 
         # Stage and commit
         gum confirm "Commit with message above?" && {
             git add .
             gum spin --spinner minidot --title "Committing changes..." -- git commit -m "$commit_message" || {
-                gum style --foreground 196 "Commit failed. Ensure there are changes to commit."
+                gum style --foreground "#c0392b" "Commit failed. Ensure there are changes to commit."
                 exit 1
             }
 
@@ -233,7 +233,7 @@ case $choice in
         current_branch=$(git rev-parse --abbrev-ref HEAD)
         gum confirm "Pull latest changes from origin/$current_branch?" && {
             gum spin --border double --align center --spinner dot --title "Pulling changes..." -- git pull origin "$current_branch"
-            gum style --foreground 46 "Successfully pulled latest changes."
+            gum style --foreground "#27ae60" "Successfully pulled latest changes."
         }
         ;;
 
