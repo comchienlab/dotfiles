@@ -167,7 +167,7 @@ case $choice in
             # Push to the current branch after confirmation
             current_branch=$(git rev-parse --abbrev-ref HEAD)
             gum confirm "Push to '$current_branch'?" && {
-                gum spin --spinner pulse --title "Pushing changes..." -- git push origin "$current_branch"
+                gum spin --spinner jump --title "Pushing changes..." -- git push origin "$current_branch"
                 gum style \
                	--border double \
                 --width 50\
