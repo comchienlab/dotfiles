@@ -53,7 +53,7 @@ case $choice in
         git fetch --prune
 
         # Choose a branch type (conventional naming)
-        branch_type=$(gum choose "fix" "feature" "refactor" "update" "docs")
+        branch_type=$(gum choose "refactor" "fix" "feat" "docs")
 
         # Ask for a branch description
         branch_desc=$(gum input --placeholder "Enter short description (e.g., bug fix, new api)")
@@ -131,13 +131,14 @@ case $choice in
     "Commit with Default Message")
         # Predefined commit messages
         commit_message=$(gum choose \
-            "feat(:fire:): :sparkles: - add new feature." \
-            "fix(:fire:): :bug: - bug fix." \
-            "docs(:fire:): :book: - documentation changes." \
-            "style(:fire:): :art: - formatting changes." \
-            "refactor(:fire:): :recycle: - code refactoring." \
-            "test(:fire:): :white_check_mark: - add/update tests." \
-            "chore(:fire:): :wrench: - maintenance tasks.")
+            "feat(all): :sparkles: - add new feature." \
+            "refactor(all): :fire: - somethings change for easy maintainale." \
+            "refactor(all): :recycle: - code refactoring." \
+            "fix(all): :bug: - bug fix for boss." \
+            "docs(all): :book: - documentation changes." \
+            "style(all): :art: - formatting changes." \
+            "test(all): :white_check_mark: - add/update tests." \
+            "chore(all): :wrench: - maintenance tasks.")
 
         # Show changes to be committed
         gum style --foreground 220 "Changes to be committed:"
@@ -146,7 +147,7 @@ case $choice in
         # Stage and commit
         gum confirm "Commit with message: '$commit_message'?" && {
             git add .
-            gum spin --spinner dot --title "Committing changes..." -- git commit -m "$commit_message" || {
+            gum spin --border double --spinner dot --title "Committing changes..." -- git commit -m "$commit_message" || {
                 gum style --foreground 196 "Commit failed. Ensure there are changes to commit."
                 exit 1
             }
@@ -154,7 +155,7 @@ case $choice in
             # Push to the current branch after confirmation
             current_branch=$(git rev-parse --abbrev-ref HEAD)
             gum confirm "Push to '$current_branch'?" && {
-                gum spin --spinner dot --title "Pushing changes..." -- git push origin "$current_branch"
+                gum spin --border double --align center --spinner dot --title "Pushing changes..." -- git push origin "$current_branch"
                 gum style --foreground 46 "Changes committed and pushed to $current_branch successfully."
             }
         }
@@ -163,15 +164,15 @@ case $choice in
     "Pull Latest Changes")
         current_branch=$(git rev-parse --abbrev-ref HEAD)
         gum confirm "Pull latest changes from origin/$current_branch?" && {
-            gum spin --spinner dot --title "Pulling changes..." -- git pull origin "$current_branch"
+            gum spin --border double --align center --spinner dot --title "Pulling changes..." -- git pull origin "$current_branch"
             gum style --foreground 46 "Successfully pulled latest changes."
         }
         ;;
 
     "Pull from Origin/Develop and Merge")
         gum confirm "Pull from origin/develop and merge?" && {
-            gum spin --spinner dot --title "Fetching from origin..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false fetch origin --recurse-submodules=no --progress --prune
-            gum spin --spinner dot --title "Pulling changes..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false merge origin/develop
+            gum spin --border double --align center --spinner dot --title "Fetching from origin..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false fetch origin --recurse-submodules=no --progress --prune
+            gum spin --border double --align center --spinner pulse --title "Pulling changes..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false merge origin/develop
             gum style --foreground 46 "Successfully pulled from origin/develop."
         }
         ;;
