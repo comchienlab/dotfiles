@@ -188,18 +188,18 @@ case $choice in
         emoji=$(get_emoji "$commit_type")
 
         # Input zone/scope
-        gum style --foreground 99 "Enter the zone/scope (e.g., button, auth, api):"
+        gum style --foreground "#3498db" "Enter the zone/scope (e.g., button, auth, api):"
         zone=$(gum input --placeholder "zone/scope")
 
         # Input commit description
-        gum style --foreground "#8e44ad" "Enter commit description:"
+        gum style --foreground "#3498db" "Enter commit description:"
         description=$(gum input --placeholder "Enter short description..." --width 256)
 
         # Construct commit message
         commit_message="$commit_type($zone): $emoji - $description."
 
         # Show changes to be committed
-        gum style --foreground 220 "Changes to be committed:"
+        gum style --foreground "#f1c40f" "Changes to be committed:"
         git diff --cached --name-status | gum format
 
         # Preview commit message
