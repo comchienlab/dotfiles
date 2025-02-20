@@ -16,6 +16,8 @@ fi
 # Main menu options
 choice=$(gum choose --height 15 "Check Git Status"\
  "Checkout Another Branch"\
+ "Checkout to new branch from Develop"\
+ "Checkout to new branch"\
  "Commit with Default Message"\
  "Pull Latest Changes"\
  "Pull from Origin/Develop and Merge"\
@@ -43,6 +45,87 @@ case $choice in
         else
             gum style --foreground 196 "No branch selected."
         fi
+        ;;
+
+    "Checkout to new branch from Develop")
+        # Fetch latest remote branches
+        echo "Fetching latest remote branches..."
+        git fetch --prune
+
+        # Choose a branch type (conventional naming)
+        branch_type=$(gum choose "fix" "feature" "refactor" "update" "docs")
+
+        # Ask for a branch description
+        branch_desc=$(gum input --placeholder "Enter short description (e.g., bug fix, new api)")
+
+        # Check if description is empty
+        if [ -z "$branch_desc" ]; then
+        gum style --foreground 196 "Branch description cannot be empty."
+        exit 1
+        fi
+
+        # Convert description to snake_case
+        branch_desc=$(echo "$branch_desc" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+
+        # Format the new branch name
+        new_branch="${branch_type}/${branch_desc}"
+
+        # Create and switch to the new branch
+        echo "Branch: $new_branch"
+        git checkout -b "$new_branch" "origin/develop"
+
+        # Push new branch to origin
+        gum confirm "Push '$new_branch' to origin?" && git push --set-upstream origin "$new_branch"
+
+        gum style --foreground 46 "Branch '$new_branch' created and set up successfully!"
+        ;;
+
+    "Checkout to new branch")
+        # Fetch latest remote branches
+        echo "Fetching latest remote branches..."
+        git fetch --prune
+
+        # Get the list of remote branches (excluding HEAD)
+        branches=$(git branch -r | grep -v "HEAD" | sed 's/origin\///' | sort)
+
+        # If no branches found, exit
+        if [ -z "$branches" ]; then
+            gum style --foreground 196 "No remote branches found."
+            exit 1
+        fi
+
+        # Let the user choose a base branch
+        selected_branch=$(git branch --all | grep -v HEAD | sed 's/^..//' | gum filter --placeholder "Search and select a branch to checkout")
+
+        # Confirm selection
+        gum confirm "Create a new branch from '$selected_branch'?" || exit 1
+
+        # Choose a branch type (conventional naming)
+        branch_type=$(gum choose "fix" "feature" "update" "docs")
+
+        # Ask for a branch description
+        branch_desc=$(gum input --placeholder "Enter short description (e.g., bug fix, new api)")
+
+        # Check if description is empty
+        if [ -z "$branch_desc" ]; then
+            gum style --foreground 196 "Branch description cannot be empty."
+            exit 1
+        fi
+
+        # Convert description to snake_case
+        branch_desc=$(echo "$branch_desc" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+
+        # Format the new branch name
+        new_branch="${branch_type}/${branch_desc}"
+
+        # Create and switch to the new branch
+        echo "Branch: $new_branch"
+        git checkout -b "$new_branch" "$selected_branch"
+
+        # Push new branch to origin
+        gum confirm "Push '$new_branch' to origin?" && git push --set-upstream origin "$new_branch"
+
+        gum style --foreground 46 "Branch '$new_branch' created and set up successfully!"
         ;;
 
     "Commit with Default Message")
