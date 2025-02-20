@@ -209,7 +209,7 @@ case $choice in
         # Stage and commit
         gum confirm "Commit with message above?" && {
             git add .
-            gum spin --spinner minidot --title "Committing changes..." -- git commit -m "$commit_message" || {
+            gum spin --spinner monkey --title "Committing changes..." -- git commit -m "$commit_message" || {
                 gum style --foreground "#c0392b" "Commit failed. Ensure there are changes to commit."
                 exit 1
             }
