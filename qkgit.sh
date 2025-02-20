@@ -169,7 +169,7 @@ case $choice in
             gum confirm "Push to '$current_branch'?" && {
                 gum spin --spinner jump --title "Pushing changes..." -- git push origin "$current_branch"
                 gum style \
-               	--border double \
+               	--border thick \
                 --width 50\
                	--border-foreground "#16a085" \
            	    --padding "1 5" \
