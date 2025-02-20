@@ -28,14 +28,14 @@ get_emoji() {
 
 # Main menu options
 choice=$(gum choose --height 15 "Check Git Status"\
- "Checkout Another Branch"\
- "Checkout to new branch from Develop"\
- "Checkout to new branch"\
- "Commit with Custom Message"\
- "Commit with Default Message"\
- "Pull Latest Changes"\
- "Pull from Origin/Develop and Merge"\
- "View Git Log")
+    "Checkout to new branch from develop"\
+    "Checkout Another Branch"\
+    "Checkout to new branch"\
+    "Commit with Custom Message"\
+    "Commit with Default Message"\
+    "Pull from Origin/Develop and Merge"\
+    "Pull Latest Changes"\
+    "View Git Log")
 
 case $choice in
     "Check Git Status")
@@ -60,10 +60,9 @@ case $choice in
         fi
         ;;
 
-    "Checkout to new branch from Develop")
+    "Checkout to new branch from develop")
         # Fetch latest remote branches
-        echo "Fetching latest remote branches..."
-        git fetch --prune
+        gum spin --spinner dot --title.foreground "#3498db" --title "Fetching latest remote branches..." -- git fetch --all --quiet --prune
 
         # Choose a branch type (conventional naming)
         branch_type=$(gum choose "refactor" "fix" "feat" "docs")
@@ -194,10 +193,10 @@ case $choice in
 
         # Input commit description
         gum style --foreground 99 "Enter commit description:"
-        description=$(gum input --placeholder "description" --width 50)
+        description=$(gum input --placeholder "Enter short description..." --width 50)
 
         # Construct commit message
-        commit_message="$commit_type($zone): $emoji - $description ."
+        commit_message="$commit_type($zone): $emoji - $description."
 
         # Show changes to be committed
         gum style --foreground 220 "Changes to be committed:"
@@ -219,7 +218,13 @@ case $choice in
             current_branch=$(git rev-parse --abbrev-ref HEAD)
             gum confirm "Push to '$current_branch'?" && {
                 gum spin --spinner dot --title "Pushing changes..." -- git push origin "$current_branch"
-                gum style --border double  --foreground 46 "Changes committed and pushed to $current_branch successfully."
+                gum style \
+               	--border double \
+                --width 50\
+               	--border-foreground "#16a085" \
+           	    --padding "1 2" \
+               	--margin "1" \
+                "🚀🚀🚀 Changes committed and pushed to $current_branch successfully."
             }
         }
         ;;
@@ -236,7 +241,13 @@ case $choice in
         gum confirm "Pull from origin/develop and merge?" && {
             gum spin --align center --spinner dot --title "Fetching from origin..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false fetch origin --recurse-submodules=no --progress --prune
             gum spin  --align center --spinner pulse --title "Pulling changes..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false merge origin/develop
-            gum style --border double --foreground 46 "Successfully pulled from origin/develop."
+            gum style \
+           	--border double \
+            --width 50\
+           	--border-foreground "#16a085" \
+       	    --padding "1 2" \
+           	--margin "1" \
+            "🚀🚀🚀 Successfully pulled from origin/develop.."
         }
         ;;
 
