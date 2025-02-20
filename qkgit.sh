@@ -13,11 +13,25 @@ if ! git rev-parse --is-inside-work-tree &> /dev/null; then
     exit 1
 fi
 
+get_emoji() {
+    case $1 in
+        "feat") echo ":sparkles:" ;;
+        "refactor") echo ":fire:" ;;
+        "fix") echo ":bug:" ;;
+        "docs") echo ":book:" ;;
+        "style") echo ":art:" ;;
+        "test") echo ":white_check_mark:" ;;
+        "chore") echo ":wrench:" ;;
+        *) echo ":question:" ;;
+    esac
+}
+
 # Main menu options
 choice=$(gum choose --height 15 "Check Git Status"\
  "Checkout Another Branch"\
  "Checkout to new branch from Develop"\
  "Checkout to new branch"\
+ "Commit with Custom Message"\
  "Commit with Default Message"\
  "Pull Latest Changes"\
  "Pull from Origin/Develop and Merge"\
@@ -26,14 +40,13 @@ choice=$(gum choose --height 15 "Check Git Status"\
 case $choice in
     "Check Git Status")
         # Display git status with color formatting
-        gum style --foreground 220 "Git Status:"
+        gum style --foreground "#27ae60" "Git Status:"
         git status --short | gum format
         ;;
 
     "Checkout Another Branch")
         # List branches and allow user to select one with better filtering
-        gum style --foreground 220 "Loading branches..."
-        git fetch --all --quiet
+        gum spin --spinner minidot --title "Loading branches..." -- git fetch --all --quiet
         branch=$(git branch --all | grep -v HEAD | sed 's/^..//' | gum filter --placeholder "Search and select a branch to checkout")
         if [ -n "$branch" ]; then
             # Strip off "remotes/" if selected from remote branches
@@ -147,7 +160,7 @@ case $choice in
         # Stage and commit
         gum confirm "Commit with message: '$commit_message'?" && {
             git add .
-            gum spin --border double --spinner dot --title "Committing changes..." -- git commit -m "$commit_message" || {
+            gum spin --spinner dot --title "Committing changes..." -- git commit -m "$commit_message" || {
                 gum style --foreground 196 "Commit failed. Ensure there are changes to commit."
                 exit 1
             }
@@ -155,8 +168,58 @@ case $choice in
             # Push to the current branch after confirmation
             current_branch=$(git rev-parse --abbrev-ref HEAD)
             gum confirm "Push to '$current_branch'?" && {
-                gum spin --border double --align center --spinner dot --title "Pushing changes..." -- git push origin "$current_branch"
-                gum style --foreground 46 "Changes committed and pushed to $current_branch successfully."
+                gum spin --align center --spinner pulse --title "Pushing changes..." -- git push origin "$current_branch"
+                gum style --border double --foreground 46 "Changes committed and pushed to $current_branch successfully."
+            }
+        }
+        ;;
+
+    "Commit with Custom Message")
+        # Choose commit type
+        commit_type=$(gum choose \
+            "feat" \
+            "refactor" \
+            "fix" \
+            "docs" \
+            "style" \
+            "test" \
+            "chore")
+
+        # Get emoji for selected type
+        emoji=$(get_emoji "$commit_type")
+
+        # Input zone/scope
+        gum style --foreground 99 "Enter the zone/scope (e.g., button, auth, api):"
+        zone=$(gum input --placeholder "zone/scope")
+
+        # Input commit description
+        gum style --foreground 99 "Enter commit description:"
+        description=$(gum input --placeholder "description" --width 50)
+
+        # Construct commit message
+        commit_message="$commit_type($zone): $emoji - $description ."
+
+        # Show changes to be committed
+        gum style --foreground 220 "Changes to be committed:"
+        git diff --cached --name-status | gum format
+
+        # Preview commit message
+        gum style --foreground 214 "Commit message preview:"
+        gum style --border double --padding "0 1" "$commit_message"
+
+        # Stage and commit
+        gum confirm "Commit with message above?" && {
+            git add .
+            gum spin --spinner minidot --title "Committing changes..." -- git commit -m "$commit_message" || {
+                gum style --foreground 196 "Commit failed. Ensure there are changes to commit."
+                exit 1
+            }
+
+            # Push to the current branch after confirmation
+            current_branch=$(git rev-parse --abbrev-ref HEAD)
+            gum confirm "Push to '$current_branch'?" && {
+                gum spin --spinner dot --title "Pushing changes..." -- git push origin "$current_branch"
+                gum style --border double  --foreground 46 "Changes committed and pushed to $current_branch successfully."
             }
         }
         ;;
@@ -171,9 +234,9 @@ case $choice in
 
     "Pull from Origin/Develop and Merge")
         gum confirm "Pull from origin/develop and merge?" && {
-            gum spin --border double --align center --spinner dot --title "Fetching from origin..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false fetch origin --recurse-submodules=no --progress --prune
-            gum spin --border double --align center --spinner pulse --title "Pulling changes..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false merge origin/develop
-            gum style --foreground 46 "Successfully pulled from origin/develop."
+            gum spin --align center --spinner dot --title "Fetching from origin..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false fetch origin --recurse-submodules=no --progress --prune
+            gum spin  --align center --spinner pulse --title "Pulling changes..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false merge origin/develop
+            gum style --border double --foreground 46 "Successfully pulled from origin/develop."
         }
         ;;
 
