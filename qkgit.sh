@@ -168,7 +168,13 @@ case $choice in
             current_branch=$(git rev-parse --abbrev-ref HEAD)
             gum confirm "Push to '$current_branch'?" && {
                 gum spin --spinner pulse --title "Pushing changes..." -- git push origin "$current_branch"
-                gum style --border double --foreground 46 "Changes committed and pushed to $current_branch successfully."
+                gum style \
+               	--border double \
+                --width 50\
+               	--border-foreground "#16a085" \
+           	    --padding "1 5" \
+               	--margin "1" \
+                "Changes committed and pushed to $current_branch successfully."
             }
         }
         ;;
