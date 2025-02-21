@@ -3,7 +3,7 @@ My Personal Linux Distro setup
 
 ### Install
 ```sh
-curl -fsSL https://raw.githubusercontent.com/comchienlab/linux-setup/main/install-qk.sh | bash
+curl -fsSL https://raw.githubusercontent.com/comchienlab/linux-setup/main/install.sh | bash
 ```
 
 ### After install Linux Distro, can use this script to:
