@@ -1,6 +1,11 @@
 # linux-setup
 My Personal Linux Distro setup
 
+### Install
+```sh
+curl -fsSL https://raw.githubusercontent.com/comchienlab/linux-setup/main/install-qk.sh | bash
+```
+
 ### After install Linux Distro, can use this script to:
 - install Quick Setup script as `qksetup` command
 ```sh
