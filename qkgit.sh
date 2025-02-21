@@ -238,15 +238,15 @@ case $choice in
     "Pull Latest Changes")
         current_branch=$(git rev-parse --abbrev-ref HEAD)
         gum confirm "Pull latest changes from origin/$current_branch?" && {
-            gum spin --border double --align center --spinner dot --title "Pulling changes..." -- git pull origin "$current_branch"
+            gum spin --spinner dot --title "Pulling changes..." -- git pull origin "$current_branch"
             gum style --foreground "#27ae60" "Successfully pulled latest changes."
         }
         ;;
 
     "Pull from Origin/Develop and Merge")
         gum confirm "Pull from origin/develop and merge?" && {
-            gum spin --align center --spinner dot --title "Fetching from origin..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false fetch origin --recurse-submodules=no --progress --prune
-            gum spin  --align center --spinner pulse --title "Pulling changes..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false merge origin/develop
+            gum spin --spinner dot --title "Fetching from origin..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false fetch origin --recurse-submodules=no --progress --prune
+            gum spin --spinner pulse --title "Pulling changes..." -- git -c credential.helper= -c core.quotepath=false -c log.showSignature=false merge origin/develop
             gum style \
            	--border double \
             --width 50\
