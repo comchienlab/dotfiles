@@ -6,4 +6,5 @@ copy-on-select = clipboard
 font-size = 10.5
 font-family = CaskaydiaCove Nerd Font
 
-keybind = super+w=close_window
+keybind = ctrl+w=close_window
+keybind = ctrl+t=new_tab
