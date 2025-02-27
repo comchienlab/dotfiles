@@ -13,3 +13,9 @@ font-family = CaskaydiaCove Nerd Font
 
 keybind = ctrl+w=close_window
 keybind = ctrl+t=new_tab
+
+window-decoration = false
+gtk-titlebar = false
+gtk-adwaita = false
+
+gtk-custom-css = ./custom.css
