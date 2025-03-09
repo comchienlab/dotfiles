@@ -93,6 +93,7 @@ case $choice in
                     "Local Send" \
                     "VSCode" \
                     "Spotify" \
+                    "Zen Browsers" \
                     "Install IDEA" \
                     "Install DataGrip"\
                     "Install Zed" \
@@ -136,6 +137,10 @@ case $choice in
                     sudo apt install -y ./localsend.deb
                     rm localsend.deb
                     cd -
+                    ;;
+                "Zen Browsers")
+                    # Install Local Send
+                    gum spin --spinner minidot --title "Installing Zen Browsers..." -- bash <(curl -s https://updates.zen-browser.app/install.sh)
                     ;;
 
                 "VSCode")
