@@ -67,17 +67,36 @@ case $choice in
         # Choose a branch type (conventional naming)
         branch_type=$(gum choose "refactor" "fix" "feat" "docs")
 
-        # Ask for a branch description
-        branch_desc=$(gum input --placeholder "Enter short description (e.g., bug fix, new api)")
+        # Choose method for branch description
+        method=$(gum choose "Manual description" "From Jira link")
 
-        # Check if description is empty
-        if [ -z "$branch_desc" ]; then
-        gum style --foreground 196 "Branch description cannot be empty."
-        exit 1
+        if [ "$method" = "Manual description" ]; then
+            # Ask for a branch description
+            branch_desc=$(gum input --placeholder "Enter short description (e.g., bug fix, new api)")
+
+            # Check if description is empty
+            if [ -z "$branch_desc" ]; then
+                gum style --foreground 196 "Branch description cannot be empty."
+                exit 1
+            fi
+
+            # Convert description to snake_case
+            branch_desc=$(echo "$branch_desc" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+        else
+            # Ask for Jira link
+            jira_link=$(gum input --placeholder "Enter Jira link (e.g., https://jira-local.ots.vn/browse/C8P2-241)")
+
+            # Extract issue key from the link
+            issue_key=${jira_link##*/}
+
+            # Check if issue key is empty
+            if [ -z "$issue_key" ]; then
+                gum style --foreground 196 "Invalid Jira link. Could not extract issue key."
+                exit 1
+            fi
+
+            branch_desc=$issue_key
         fi
-
-        # Convert description to snake_case
-        branch_desc=$(echo "$branch_desc" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
 
         # Format the new branch name
         new_branch="${branch_type}/${branch_desc}"
