@@ -29,6 +29,7 @@ choice=$(gum choose "Install Desktop" \
                     "Debloat Gnome" \
                     "Install Ibus Bamboo" \
                     "Fast Configuration" \
+                    "Purge Package" \
                     "Install Ghostty Terminal"\
                     "Setup Development Environment")
 
@@ -97,6 +98,7 @@ case $choice in
                     "Install IDEA" \
                     "Install DataGrip"\
                     "Install Zed" \
+                    "Install Postman" \
                     "Other")
 
         # If no tools selected, show a warning
@@ -173,6 +175,24 @@ case $choice in
                     gum style --foreground 46 "Installed Zed."
                     ;;
 
+                "Install Postman")
+                    gum style --foreground 46 "Installing Postman..."
+                    gum spin --spinner dot --title "Download Postman...." --show-output false -- wget https://dl.pstmn.io/download/latest/linux64 -O postman.tar.gz
+                    sudo tar -xzf postman.tar.gz -C /opt
+                    sudo ln -s /opt/Postman/Postman /usr/bin/postman
+                        rm postman.tar.gz
+                        echo """
+                        [Desktop Entry]
+                        Type=Application
+                        Name=Postman
+                        Icon=/opt/Postman/app/resources/app/assets/icon.png
+                        Exec="/opt/Postman/Postman"
+                        Comment=Postman Desktop App
+                        Categories=Development;Code;
+                        """ >> /usr/share/applications/postman.desktop
+                    gum style --foreground 46 "Installed Postman."
+                    ;;
+
                 "Install Spotify")
                     # Install Spotify
                     gum style --foreground --border --align center 46 "Installing Spotify..."
@@ -197,6 +217,61 @@ case $choice in
     "Debloat Gnome")
         gum style --foreground 46 "Debloating Gnome packages..."
         sudo apt -y autopurge evolution synaptic gnome-games gnome-sound-recorder gnome-music libreoffice-core libreoffice-common gnome-contacts baobab simple-scan yelp gnome-maps rhythmbox totem transmission-gtk
+        ;;
+
+    "Purge Package")
+        gum style --foreground 46 "Starting 'Purge Package' process..."
+
+        # Function to search, select, and purge packages using dpkg
+        purge_package() {
+        # Check if gum is installed
+        if ! command -v gum &> /dev/null; then
+        echo "gum is not installed. Please install gum first."
+        exit 1
+        fi
+
+        # Prompt the user to input the search query
+        search_query=$(gum input --placeholder "Enter package name to search")
+
+        # Use dpkg to list installed packages and filter by the search query
+        packages=$(dpkg --get-selections | grep "$search_query" | awk '{print $1}')
+
+        # If no packages match the search query, exit
+        if [ -z "$packages" ]; then
+        echo "No packages found for the search term '$search_query'."
+        exit 1
+        fi
+
+        # Use gum to let the user select a package from the list
+        selected_package=$(echo "$packages" | gum choose --limit 1 --prompt "Select a package to purge")
+
+        # If no package is selected, exit
+        if [ -z "$selected_package" ]; then
+        echo "No package selected for purging."
+        exit 1
+        fi
+
+        # Confirm the action with the user
+        echo "You selected: $selected_package"
+        confirm=$(echo -e "Yes\nNo" | gum choose --prompt "Are you sure you want to purge $selected_package?")
+
+        # If the user confirms, purge the selected package
+        if [ "$confirm" == "Yes" ]; then
+        echo "Purging $selected_package..."
+        sudo dpkg --purge "$selected_package"
+        sudo apt-get autoremove -y  # Remove dependencies that are no longer needed
+        echo "$selected_package has been purged."
+        else
+        echo "Action canceled."
+        fi
+        }
+
+        # Run the purge_package function
+        purge_package
+        ;;
+
+        *)
+        gum style --foreground 160 "Invalid selection!"
         ;;
 
     "Install Ibus Bamboo")
