@@ -177,7 +177,7 @@ case $choice in
 
                 "Install Postman")
                     gum style --foreground 46 "Installing Postman..."
-                    gum spin --spinner dot --title "Download Postman...." --show-output false -- wget https://dl.pstmn.io/download/latest/linux64 -O postman.tar.gz
+                    wget https://dl.pstmn.io/download/latest/linux64 -O postman.tar.gz
                     sudo tar -xzf postman.tar.gz -C /opt
                     sudo ln -s /opt/Postman/Postman /usr/bin/postman
                         rm postman.tar.gz
