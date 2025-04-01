@@ -35,6 +35,8 @@ choice=$(gum choose --height 15 "Check Git Status"\
     "Commit with Default Message"\
     "Pull from Origin/Develop and Merge"\
     "Pull Latest Changes"\
+    "Stash current changes" \
+    "Apply stash" \
     "View Git Log")
 
 case $choice in
@@ -274,6 +276,24 @@ case $choice in
            	--margin "1" \
             "🚀🚀🚀 Successfully pulled from origin/develop.."
         }
+        ;;
+    
+    "Stash current changes")
+        git stash push -m "$(gum input --placeholder 'Enter stash message')"
+        gum style --foreground 46 "Changes have been stashed successfully!"
+        ;;
+
+
+    "Apply stash")
+        stash_list=$(git stash list | awk -F: '{print $1 " - " $2}')
+        if [[ -z "$stash_list" ]]; then
+            gum style --foreground 196 "No stash found!"
+        else
+            selected_stash=$(echo "$stash_list" | gum choose)
+            stash_index=$(echo "$selected_stash" | awk '{print $1}')
+            git stash apply "$stash_index"
+            gum style --foreground 46 "Stash $stash_index has been applied!"
+        fi
         ;;
 
     "View Git Log")
