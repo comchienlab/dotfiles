@@ -24,3 +24,9 @@ sudo chmod +x /usr/local/bin/qkgit
 sudo curl -fsSL -o /usr/local/bin/qkcommit https://raw.githubusercontent.com/comchienlab/linux-setup/main/qkcommit.sh
 sudo chmod +x /usr/local/bin/qkcommit
 ```
+
+- Install n8n
+```sh
+sudo curl -fsSL -o /usr/local/bin/n8n https://raw.githubusercontent.com/comchienlab/linux-setup/main/n8n.sh
+sudo chmod +x /usr/local/bin/n8n
+```
