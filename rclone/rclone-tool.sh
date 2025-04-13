@@ -26,9 +26,14 @@ install_or_update_rclone() {
     fi
 }
 
-# Function to import config
+# Function to manage rclone config
 import_config() {
-    config_mode=$(gum choose "Import from local file" "Paste config content" "Back to main menu")
+    config_mode=$(gum choose \
+        "Import from local file" \
+        "Paste config content" \
+        "Show current config content" \
+        "Back to main menu")
+
     case "$config_mode" in
         "Import from local file")
             config_path=$(gum input --placeholder "Enter full path to rclone.conf file")
@@ -43,6 +48,13 @@ import_config() {
         "Paste config content")
             gum write --width 60 --height 20 --placeholder "Paste your rclone config here" > ~/.config/rclone/rclone.conf
             gum style --foreground 42 "Config saved."
+            ;;
+        "Show current config content")
+            if [ -f ~/.config/rclone/rclone.conf ]; then
+                gum pager < ~/.config/rclone/rclone.conf
+            else
+                gum style --foreground 1 "No config file found at ~/.config/rclone/rclone.conf"
+            fi
             ;;
         *)
             return
