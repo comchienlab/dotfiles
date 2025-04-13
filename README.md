@@ -39,6 +39,5 @@ sudo chmod +x /usr/local/bin/comchienrclone
 
 - Install Nerd font installer
 ```sh
-sudo curl -fsSL -o /usr/local/bin/comchienrclone https://raw.githubusercontent.com/comchienlab/dotfiles/main/rclone/nerdfont-installer.sh
-sudo chmod +x /usr/local/bin/comchienrclone
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/fonts/nerdfont-installer.sh)
 ```
