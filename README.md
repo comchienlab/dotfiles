@@ -30,3 +30,9 @@ sudo chmod +x /usr/local/bin/qkcommit
 sudo curl -fsSL -o /usr/local/bin/n8n https://raw.githubusercontent.com/comchienlab/linux-setup/main/n8n.sh
 sudo chmod +x /usr/local/bin/n8n
 ```
+
+- Install rclone tool
+```sh
+sudo curl -fsSL -o /usr/local/bin/comchienrclone https://raw.githubusercontent.com/comchienlab/linux-setup/main/n8n.sh
+sudo chmod +x /usr/local/bin/comchienrclone
+```
