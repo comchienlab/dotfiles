@@ -1,11 +1,50 @@
 #!/bin/bash
 
 # Function to ensure gum is installed
+# Function to ensure gum is installed
 ensure_gum() {
     if ! command -v gum &> /dev/null; then
         echo "Gum not found. Installing..."
-        curl -s https://raw.githubusercontent.com/charmbracelet/gum/main/install.sh | bash
-        export PATH="$HOME/.local/bin:$PATH"
+
+        # Check the operating system
+        if [ "$(uname)" == "Darwin" ]; then
+            # macOS installation using Homebrew
+            if command -v brew &> /dev/null; then
+                brew install gum
+            else
+                echo "Homebrew not found. Please install Homebrew first."
+                exit 1
+            fi
+        elif [ "$(uname)" == "Linux" ]; then
+            # Linux installation
+            # First try using package managers
+            if command -v apt-get &> /dev/null; then
+                sudo mkdir -p /etc/apt/keyrings
+                curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+                echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+                sudo apt update && sudo apt install gum
+            elif command -v dnf &> /dev/null; then
+                sudo dnf copr enable charm/gum
+                sudo dnf install gum
+            else
+                # Fallback to direct binary installation
+                echo "Installing gum binary directly..."
+                TEMP_DIR=$(mktemp -d)
+                curl -L https://github.com/charmbracelet/gum/releases/latest/download/gum_Linux_x86_64.tar.gz -o "$TEMP_DIR/gum.tar.gz"
+                tar xf "$TEMP_DIR/gum.tar.gz" -C "$TEMP_DIR"
+                sudo mv "$TEMP_DIR/gum" /usr/local/bin/
+                rm -rf "$TEMP_DIR"
+            fi
+        else
+            echo "Unsupported operating system"
+            exit 1
+        fi
+    fi
+
+    # Verify installation
+    if ! command -v gum &> /dev/null; then
+        echo "Failed to install gum. Please install it manually."
+        exit 1
     fi
 }
 
