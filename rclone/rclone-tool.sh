@@ -1,54 +1,16 @@
 #!/bin/bash
 
-# Function to ensure gum is installed
-# Function to ensure gum is installed
-ensure_gum() {
-    if ! command -v gum &> /dev/null; then
-        echo "Gum not found. Installing..."
+# === Setup PATH ===
+export PATH="$HOME/.local/bin:$PATH"
 
-        # Check the operating system
-        if [ "$(uname)" == "Darwin" ]; then
-            # macOS installation using Homebrew
-            if command -v brew &> /dev/null; then
-                brew install gum
-            else
-                echo "Homebrew not found. Please install Homebrew first."
-                exit 1
-            fi
-        elif [ "$(uname)" == "Linux" ]; then
-            # Linux installation
-            # First try using package managers
-            if command -v apt-get &> /dev/null; then
-                sudo mkdir -p /etc/apt/keyrings
-                curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-                echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-                sudo apt update && sudo apt install gum
-            elif command -v dnf &> /dev/null; then
-                sudo dnf copr enable charm/gum
-                sudo dnf install gum
-            else
-                # Fallback to direct binary installation
-                echo "Installing gum binary directly..."
-                TEMP_DIR=$(mktemp -d)
-                curl -L https://github.com/charmbracelet/gum/releases/latest/download/gum_Linux_x86_64.tar.gz -o "$TEMP_DIR/gum.tar.gz"
-                tar xf "$TEMP_DIR/gum.tar.gz" -C "$TEMP_DIR"
-                sudo mv "$TEMP_DIR/gum" /usr/local/bin/
-                rm -rf "$TEMP_DIR"
-            fi
-        else
-            echo "Unsupported operating system"
-            exit 1
-        fi
-    fi
+# === Ensure gum is installed ===
+if ! command -v gum &> /dev/null; then
+    echo "Installing gum..."
+    curl -s https://raw.githubusercontent.com/charmbracelet/gum/main/install.sh | bash
+    export PATH="$HOME/.local/bin:$PATH"
+fi
 
-    # Verify installation
-    if ! command -v gum &> /dev/null; then
-        echo "Failed to install gum. Please install it manually."
-        exit 1
-    fi
-}
-
-# Function to install or update rclone
+# === Ensure rclone is installed or updated ===
 install_or_update_rclone() {
     if ! command -v rclone &> /dev/null; then
         gum confirm "Rclone is not installed. Install now?" && \
@@ -65,12 +27,13 @@ install_or_update_rclone() {
     fi
 }
 
-# Function to manage rclone config
+# === Rclone Config Management ===
 import_config() {
     config_mode=$(gum choose \
         "Import from local file" \
         "Paste config content" \
         "Show current config content" \
+        "Copy current config to clipboard" \
         "Back to main menu")
 
     case "$config_mode" in
@@ -95,40 +58,56 @@ import_config() {
                 gum style --foreground 1 "No config file found at ~/.config/rclone/rclone.conf"
             fi
             ;;
+        "Copy current config to clipboard")
+            if [ -f ~/.config/rclone/rclone.conf ]; then
+                if command -v pbcopy &> /dev/null; then
+                    cat ~/.config/rclone/rclone.conf | pbcopy
+                    gum style --foreground 42 "Copied to clipboard using pbcopy (macOS)."
+                elif command -v xclip &> /dev/null; then
+                    cat ~/.config/rclone/rclone.conf | xclip -selection clipboard
+                    gum style --foreground 42 "Copied to clipboard using xclip (Linux)."
+                else
+                    gum style --foreground 1 "Clipboard tool not found (pbcopy/xclip)."
+                fi
+            else
+                gum style --foreground 1 "No config file found to copy."
+            fi
+            ;;
         *)
             return
             ;;
     esac
 }
 
-# Function to add new remote drive
-add_drive_config() {
-    gum confirm "Open rclone interactive config?" && rclone config
+# === Select Local Folder ===
+select_local_folder() {
+    gum file --directory
 }
 
-# Function for copy/move
-file_transfer() {
-    mode=$1
-    src_path=$(gum input --placeholder "Enter local source path")
-    remote_list=$(rclone listremotes)
+# === Select Rclone Folder Recursively ===
+select_rclone_folder() {
+    remote="$1"
+    path="$2"
 
-    if [ -z "$remote_list" ]; then
-        gum style --foreground 1 "No remotes found. Please configure rclone first using 'rclone config'."
+    folder_list=$(rclone lsf --dirs-only "$remote:$path" 2>/dev/null)
+
+    if [ -z "$folder_list" ]; then
+        echo "$path"
         return
     fi
 
-    remote_target=$(gum choose $(echo "$remote_list" | sed 's/:$//g'))
-    dest_path=$(gum input --placeholder "Enter destination path on remote (e.g. backup/my-folder)")
+    folder_choice=$(echo -e "..\n$folder_list" | gum choose --no-limit --header="📂 Select folder in $remote:$path")
 
-    if [ "$mode" == "Copy" ]; then
-        rclone copy "$src_path" "$remote_target:$dest_path" -P
+    if [ "$folder_choice" == ".." ]; then
+        parent=$(dirname "$path")
+        select_rclone_folder "$remote" "$parent"
     else
-        rclone move "$src_path" "$remote_target:$dest_path" -P
+        new_path="${path%/}/$folder_choice"
+        select_rclone_folder "$remote" "$new_path"
     fi
-
-    gum style --foreground 42 "$mode completed successfully."
 }
 
+# === Manage File Moves ===
 manage_files() {
     action=$(gum choose \
         "Move from local to Rclone drive" \
@@ -138,40 +117,39 @@ manage_files() {
 
     case "$action" in
         "Move from local to Rclone drive")
-            choose_method=$(gum choose "Select folder" "Type path manually")
-            if [ "$choose_method" == "Select folder" ]; then
-                src_path=$(gum file --directory)
-            else
-                src_path=$(gum input --placeholder "Enter local source path")
-            fi
-
+            src_path=$(select_local_folder)
             if [ ! -d "$src_path" ]; then
-                gum style --foreground 1 "Invalid local source path!"
+                gum style --foreground 1 "Invalid local folder!"
                 return
             fi
-
             remote_target=$(gum choose $(rclone listremotes | sed 's/:$//g'))
-            dest_path=$(gum input --placeholder "Enter destination path on remote")
-            rclone move "$src_path" "$remote_target:$dest_path" -P
+            dest_path=$(select_rclone_folder "$remote_target" "")
+            cmd="rclone move \"$src_path\" \"$remote_target:$dest_path\" -P"
+            gum style --foreground 3 "🚀 Starting transfer..."
+            echo "$cmd" | gum format
+            eval "$cmd" 2>&1 | gum pager
             ;;
 
         "Move from Rclone drive to local")
-            remote_source=$(gum choose $(rclone listremotes | sed 's/:$//g'))
-            src_path=$(gum input --placeholder "Enter source path on remote")
-            dest_path=$(gum input --placeholder "Enter local destination path")
-
+            from_remote=$(gum choose $(rclone listremotes | sed 's/:$//g'))
+            src_path=$(select_rclone_folder "$from_remote" "")
+            dest_path=$(select_local_folder)
             mkdir -p "$dest_path"
-            rclone move "$remote_source:$src_path" "$dest_path" -P
+            cmd="rclone move \"$from_remote:$src_path\" \"$dest_path\" -P"
+            gum style --foreground 3 "🚀 Starting transfer..."
+            echo "$cmd" | gum format
+            eval "$cmd" 2>&1 | gum pager
             ;;
 
         "Move from one Rclone remote to another")
             from_remote=$(gum choose $(rclone listremotes | sed 's/:$//g'))
-            src_path=$(gum input --placeholder "Enter source path on source remote")
-
+            src_path=$(select_rclone_folder "$from_remote" "")
             to_remote=$(gum choose $(rclone listremotes | sed 's/:$//g'))
-            dest_path=$(gum input --placeholder "Enter destination path on target remote")
-
-            rclone move "$from_remote:$src_path" "$to_remote:$dest_path" -P
+            dest_path=$(select_rclone_folder "$to_remote" "")
+            cmd="rclone move \"$from_remote:$src_path\" \"$to_remote:$dest_path\" -P"
+            gum style --foreground 3 "🚀 Starting transfer..."
+            echo "$cmd" | gum format
+            eval "$cmd" 2>&1 | gum pager
             ;;
 
         *)
@@ -179,14 +157,22 @@ manage_files() {
             ;;
     esac
 
-    gum style --foreground 42 "File move operation completed."
+    gum style --foreground 42 "✅ File move completed."
 }
 
-# === Main Execution ===
-ensure_gum
+# === Add New Rclone Drive ===
+add_drive_config() {
+    gum confirm "Open rclone interactive config?" && rclone config
+}
 
+# === Main Menu ===
 while true; do
-    choice=$(gum choose "Install & Update Rclone" "Add or Modify config" "Manage drive" "Manage files" "Exit")
+    choice=$(gum choose \
+        "Install & Update Rclone" \
+        "Add or Modify config" \
+        "Manage drive" \
+        "Manage files" \
+        "Exit")
 
     case "$choice" in
         "Install & Update Rclone")
@@ -198,16 +184,202 @@ while true; do
         "Manage drive")
             add_drive_config
             ;;
-
         "Manage files")
             manage_files
             ;;
-
-        "Copy file")
-            file_transfer "Copy"
+        "Exit")
+            break
             ;;
-        "Move file")
-            file_transfer "Move"
+    esac
+done
+#!/bin/bash
+
+# === Setup PATH ===
+export PATH="$HOME/.local/bin:$PATH"
+
+# === Ensure gum is installed ===
+if ! command -v gum &> /dev/null; then
+    echo "Installing gum..."
+    curl -s https://raw.githubusercontent.com/charmbracelet/gum/main/install.sh | bash
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
+# === Ensure rclone is installed or updated ===
+install_or_update_rclone() {
+    if ! command -v rclone &> /dev/null; then
+        gum confirm "Rclone is not installed. Install now?" && \
+        curl https://rclone.org/install.sh | sudo bash
+    else
+        installed_version=$(rclone version | head -n 1 | awk '{print $2}' | tr -d 'v')
+        latest_version=$(curl -s https://api.github.com/repos/rclone/rclone/releases/latest | grep '"tag_name":' | cut -d'"' -f4 | tr -d 'v')
+        if [ "$installed_version" != "$latest_version" ]; then
+            gum confirm "Rclone is outdated (installed: $installed_version, latest: $latest_version). Upgrade now?" && \
+            curl https://rclone.org/install.sh | sudo bash
+        else
+            gum style --foreground 10 "Rclone is up to date (version $installed_version)."
+        fi
+    fi
+}
+
+# === Rclone Config Management ===
+import_config() {
+    config_mode=$(gum choose \
+        "Import from local file" \
+        "Paste config content" \
+        "Show current config content" \
+        "Copy current config to clipboard" \
+        "Back to main menu")
+
+    case "$config_mode" in
+        "Import from local file")
+            config_path=$(gum input --placeholder "Enter full path to rclone.conf file")
+            if [ -f "$config_path" ]; then
+                mkdir -p ~/.config/rclone
+                cp "$config_path" ~/.config/rclone/rclone.conf
+                gum style --foreground 42 "Config imported successfully."
+            else
+                gum style --foreground 1 "File not found!"
+            fi
+            ;;
+        "Paste config content")
+            gum write --width 60 --height 20 --placeholder "Paste your rclone config here" > ~/.config/rclone/rclone.conf
+            gum style --foreground 42 "Config saved."
+            ;;
+        "Show current config content")
+            if [ -f ~/.config/rclone/rclone.conf ]; then
+                gum pager < ~/.config/rclone/rclone.conf
+            else
+                gum style --foreground 1 "No config file found at ~/.config/rclone/rclone.conf"
+            fi
+            ;;
+        "Copy current config to clipboard")
+            if [ -f ~/.config/rclone/rclone.conf ]; then
+                if command -v pbcopy &> /dev/null; then
+                    cat ~/.config/rclone/rclone.conf | pbcopy
+                    gum style --foreground 42 "Copied to clipboard using pbcopy (macOS)."
+                elif command -v xclip &> /dev/null; then
+                    cat ~/.config/rclone/rclone.conf | xclip -selection clipboard
+                    gum style --foreground 42 "Copied to clipboard using xclip (Linux)."
+                else
+                    gum style --foreground 1 "Clipboard tool not found (pbcopy/xclip)."
+                fi
+            else
+                gum style --foreground 1 "No config file found to copy."
+            fi
+            ;;
+        *)
+            return
+            ;;
+    esac
+}
+
+# === Select Local Folder ===
+select_local_folder() {
+    gum file --directory
+}
+
+# === Select Rclone Folder Recursively ===
+select_rclone_folder() {
+    remote="$1"
+    path="$2"
+
+    folder_list=$(rclone lsf --dirs-only "$remote:$path" 2>/dev/null)
+
+    if [ -z "$folder_list" ]; then
+        echo "$path"
+        return
+    fi
+
+    folder_choice=$(echo -e "..\n$folder_list" | gum choose --no-limit --header="📂 Select folder in $remote:$path")
+
+    if [ "$folder_choice" == ".." ]; then
+        parent=$(dirname "$path")
+        select_rclone_folder "$remote" "$parent"
+    else
+        new_path="${path%/}/$folder_choice"
+        select_rclone_folder "$remote" "$new_path"
+    fi
+}
+
+# === Manage File Moves ===
+manage_files() {
+    action=$(gum choose \
+        "Move from local to Rclone drive" \
+        "Move from Rclone drive to local" \
+        "Move from one Rclone remote to another" \
+        "Back to main menu")
+
+    case "$action" in
+        "Move from local to Rclone drive")
+            src_path=$(select_local_folder)
+            if [ ! -d "$src_path" ]; then
+                gum style --foreground 1 "Invalid local folder!"
+                return
+            fi
+            remote_target=$(gum choose $(rclone listremotes | sed 's/:$//g'))
+            dest_path=$(select_rclone_folder "$remote_target" "")
+            cmd="rclone move \"$src_path\" \"$remote_target:$dest_path\" -P"
+            gum style --foreground 3 "🚀 Starting transfer..."
+            echo "$cmd" | gum format
+            eval "$cmd" 2>&1 | gum pager
+            ;;
+
+        "Move from Rclone drive to local")
+            from_remote=$(gum choose $(rclone listremotes | sed 's/:$//g'))
+            src_path=$(select_rclone_folder "$from_remote" "")
+            dest_path=$(select_local_folder)
+            mkdir -p "$dest_path"
+            cmd="rclone move \"$from_remote:$src_path\" \"$dest_path\" -P"
+            gum style --foreground 3 "🚀 Starting transfer..."
+            echo "$cmd" | gum format
+            eval "$cmd" 2>&1 | gum pager
+            ;;
+
+        "Move from one Rclone remote to another")
+            from_remote=$(gum choose $(rclone listremotes | sed 's/:$//g'))
+            src_path=$(select_rclone_folder "$from_remote" "")
+            to_remote=$(gum choose $(rclone listremotes | sed 's/:$//g'))
+            dest_path=$(select_rclone_folder "$to_remote" "")
+            cmd="rclone move \"$from_remote:$src_path\" \"$to_remote:$dest_path\" -P"
+            gum style --foreground 3 "🚀 Starting transfer..."
+            echo "$cmd" | gum format
+            eval "$cmd" 2>&1 | gum pager
+            ;;
+
+        *)
+            return
+            ;;
+    esac
+
+    gum style --foreground 42 "✅ File move completed."
+}
+
+# === Add New Rclone Drive ===
+add_drive_config() {
+    gum confirm "Open rclone interactive config?" && rclone config
+}
+
+# === Main Menu ===
+while true; do
+    choice=$(gum choose \
+        "Install & Update Rclone" \
+        "Add or Modify config" \
+        "Manage drive" \
+        "Manage files" \
+        "Exit")
+
+    case "$choice" in
+        "Install & Update Rclone")
+            install_or_update_rclone
+            ;;
+        "Add or Modify config")
+            import_config
+            ;;
+        "Manage drive")
+            add_drive_config
+            ;;
+        "Manage files")
+            manage_files
             ;;
         "Exit")
             break
