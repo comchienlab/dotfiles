@@ -36,3 +36,9 @@ sudo chmod +x /usr/local/bin/n8n
 sudo curl -fsSL -o /usr/local/bin/comchienrclone https://raw.githubusercontent.com/comchienlab/dotfiles/main/rclone/rclone-tool.sh
 sudo chmod +x /usr/local/bin/comchienrclone
 ```
+
+- Install Nerd font installer
+```sh
+sudo curl -fsSL -o /usr/local/bin/comchienrclone https://raw.githubusercontent.com/comchienlab/dotfiles/main/rclone/nerdfont-installer.sh
+sudo chmod +x /usr/local/bin/comchienrclone
+```
