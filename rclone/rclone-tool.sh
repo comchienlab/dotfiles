@@ -90,11 +90,64 @@ file_transfer() {
     gum style --foreground 42 "$mode completed successfully."
 }
 
+manage_files() {
+    action=$(gum choose \
+        "Move from local to Rclone drive" \
+        "Move from Rclone drive to local" \
+        "Move from one Rclone remote to another" \
+        "Back to main menu")
+
+    case "$action" in
+        "Move from local to Rclone drive")
+            choose_method=$(gum choose "Select folder" "Type path manually")
+            if [ "$choose_method" == "Select folder" ]; then
+                src_path=$(gum file --directory)
+            else
+                src_path=$(gum input --placeholder "Enter local source path")
+            fi
+
+            if [ ! -d "$src_path" ]; then
+                gum style --foreground 1 "Invalid local source path!"
+                return
+            fi
+
+            remote_target=$(gum choose $(rclone listremotes | sed 's/:$//g'))
+            dest_path=$(gum input --placeholder "Enter destination path on remote")
+            rclone move "$src_path" "$remote_target:$dest_path" -P
+            ;;
+
+        "Move from Rclone drive to local")
+            remote_source=$(gum choose $(rclone listremotes | sed 's/:$//g'))
+            src_path=$(gum input --placeholder "Enter source path on remote")
+            dest_path=$(gum input --placeholder "Enter local destination path")
+
+            mkdir -p "$dest_path"
+            rclone move "$remote_source:$src_path" "$dest_path" -P
+            ;;
+
+        "Move from one Rclone remote to another")
+            from_remote=$(gum choose $(rclone listremotes | sed 's/:$//g'))
+            src_path=$(gum input --placeholder "Enter source path on source remote")
+
+            to_remote=$(gum choose $(rclone listremotes | sed 's/:$//g'))
+            dest_path=$(gum input --placeholder "Enter destination path on target remote")
+
+            rclone move "$from_remote:$src_path" "$to_remote:$dest_path" -P
+            ;;
+
+        *)
+            return
+            ;;
+    esac
+
+    gum style --foreground 42 "File move operation completed."
+}
+
 # === Main Execution ===
 ensure_gum
 
 while true; do
-    choice=$(gum choose "Install & Update Rclone" "Add or Modify config" "Manage drive" "Copy file" "Move file" "Exit")
+    choice=$(gum choose "Install & Update Rclone" "Add or Modify config" "Manage drive" "Manage files" "Exit")
 
     case "$choice" in
         "Install & Update Rclone")
@@ -106,6 +159,11 @@ while true; do
         "Manage drive")
             add_drive_config
             ;;
+
+        "Manage files")
+            manage_files
+            ;;
+
         "Copy file")
             file_transfer "Copy"
             ;;
