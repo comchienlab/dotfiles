@@ -33,6 +33,6 @@ sudo chmod +x /usr/local/bin/n8n
 
 - Install rclone tool
 ```sh
-sudo curl -fsSL -o /usr/local/bin/comchienrclone https://raw.githubusercontent.com/comchienlab/linux-setup/main/n8n.sh
+sudo curl -fsSL -o /usr/local/bin/comchienrclone https://raw.githubusercontent.com/comchienlab/dotfiles/main/rclone/rclone-tool.sh
 sudo chmod +x /usr/local/bin/comchienrclone
 ```
