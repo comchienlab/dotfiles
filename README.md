@@ -27,8 +27,12 @@ sudo chmod +x /usr/local/bin/qkcommit
 
 - Install n8n
 ```sh
-sudo curl -fsSL -o /usr/local/bin/n8n https://raw.githubusercontent.com/comchienlab/linux-setup/main/n8n.sh
+sudo curl -fsSL -o /usr/local/bin/n8n https://raw.githubusercontent.com/comchienlab/dotfiles/main/n8n/n8n-installer.sh
 sudo chmod +x /usr/local/bin/n8n
+```
+Or
+```
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/n8n/n8n-installer.sh)
 ```
 
 - Install rclone tool
