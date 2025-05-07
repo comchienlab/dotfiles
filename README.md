@@ -45,3 +45,9 @@ sudo chmod +x /usr/local/bin/cccrclone
 ```sh
 bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/fonts/nerdfont-installer.sh)
 ```
+
+- Install Quick Macos
+```sh
+sudo curl -fsSL -o /usr/local/bin/qkmacos https://raw.githubusercontent.com/comchienlab/dotfiles/main/macos/qkmacos.sh
+sudo chmod +x /usr/local/bin/qkmacos
+```
