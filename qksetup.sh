@@ -8,6 +8,7 @@ YARN_VERSION="1"             # Yarn v1
 ZSHRC_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/.config/.zshrc"
 STARSHIP_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/.config/starship.toml"
 
+
 # Check if `gum` is installed, if not install it
 if ! command -v gum &> /dev/null; then
     echo "Gum is required but not installed. Installing..."

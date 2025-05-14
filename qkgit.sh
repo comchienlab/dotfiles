@@ -26,20 +26,50 @@ get_emoji() {
     esac
 }
 
-# Main menu options
-choice=$(gum choose --height 15 "Check Git Status"\
-    "Checkout to new branch from develop"\
-    "Checkout Another Branch"\
-    "Checkout to new branch"\
-    "Commit with Custom Message"\
-    "Commit with Default Message"\
-    "Pull from Origin/Develop and Merge"\
-    "Pull Latest Changes"\
-    "Stash current changes" \
-    "Apply stash" \
-    "View Git Log")
+# Top-level group menu
+feature_group=$(gum choose --height 10 \
+    "Status & Log" \
+    "Branch Management" \
+    "Commit" \
+    "Pull & Merge" \
+    "Stash")
 
-case $choice in
+case $feature_group in
+    "Status & Log")
+        action=$(gum choose --height 5 \
+            "Check Git Status" \
+            "View Git Log")
+        ;;
+    "Branch Management")
+        action=$(gum choose --height 7 \
+            "Checkout to new branch from develop" \
+            "Checkout Another Branch" \
+            "Checkout to new branch")
+        ;;
+    "Commit")
+        action=$(gum choose --height 5 \
+            "Commit with Custom Message" \
+            "Commit with Default Message")
+        ;;
+    "Pull & Merge")
+        action=$(gum choose --height 5 \
+            "Pull from Origin/Develop and Merge" \
+            "Pull Latest Changes")
+        ;;
+    "Stash")
+        action=$(gum choose --height 7 \
+            "Stash current changes" \
+            "Apply stash" \
+            "Remove/Delete a stash" \
+            "View stash list")
+        ;;
+    *)
+        gum style --foreground 196 "Invalid group. Exiting."
+        exit 1
+        ;;
+esac
+
+case $action in
     "Check Git Status")
         # Display git status with color formatting
         gum style --foreground "#27ae60" "Git Status:"
@@ -283,7 +313,6 @@ case $choice in
         gum style --foreground 46 "Changes have been stashed successfully!"
         ;;
 
-
     "Apply stash")
         stash_list=$(git stash list | awk -F: '{print $1 " - " $2}')
         if [[ -z "$stash_list" ]]; then
@@ -293,6 +322,29 @@ case $choice in
             stash_index=$(echo "$selected_stash" | awk '{print $1}')
             git stash apply "$stash_index"
             gum style --foreground 46 "Stash $stash_index has been applied!"
+        fi
+        ;;
+
+    "Remove/Delete a stash")
+        stash_list=$(git stash list | awk -F: '{print $1 " - " $2}')
+        if [[ -z "$stash_list" ]]; then
+            gum style --foreground 196 "No stash found!"
+        else
+            selected_stash=$(echo "$stash_list" | gum choose)
+            stash_index=$(echo "$selected_stash" | awk '{print $1}')
+            gum confirm "Delete $stash_index?" && {
+                git stash drop "$stash_index"
+                gum style --foreground 46 "Stash $stash_index has been deleted!"
+            }
+        fi
+        ;;
+
+    "View stash list")
+        stash_list=$(git stash list)
+        if [[ -z "$stash_list" ]]; then
+            gum style --foreground 196 "No stash found!"
+        else
+            echo "$stash_list" | gum format
         fi
         ;;
 
