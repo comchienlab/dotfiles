@@ -267,12 +267,9 @@ case $choice in
         fi
         }
 
+
         # Run the purge_package function
         purge_package
-        ;;
-
-        *)
-        gum style --foreground 160 "Invalid selection!"
         ;;
 
     "Install Ibus Bamboo")
@@ -457,5 +454,9 @@ case $choice in
         done
 
         gum style --foreground 46 "Selected tools installation is complete!"
+        ;;
+
+    *)
+        gum style --foreground 160 "Invalid selection!"
         ;;
 esac

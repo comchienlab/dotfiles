@@ -66,13 +66,4 @@ for file in "${QK_FILES[@]}"; do
     fi
 done
 
-print_message "$GREEN" "
-Installation completed!
-Please restart your terminal or run:
-    source ~/.bashrc (if using bash)
-    source ~/.zshrc  (if using zsh)
-
-Available commands:
-    qkgit   - Quick Git operations
-    qksetup - Quick Setup operations
-    qkcommit - Quick Commit operations" 
+print_message "$GREEN" "Installation completed!\nPlease restart your terminal or run:\n    source ~/.bashrc (if using bash)\n    source ~/.zshrc  (if using zsh)\n\nAvailable commands:\n    qkgit   - Quick Git operations\n    qksetup - Quick Setup operations\n    qkcommit - Quick Commit operations"
