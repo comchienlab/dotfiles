@@ -32,6 +32,8 @@ choice=$(gum choose "Install Desktop" \
                     "Fast Configuration" \
                     "Purge Package" \
                     "Install Ghostty Terminal"\
+                    "Install Nerd Fonts" \
+                    "Create Swap File" \
                     "Setup Development Environment")
 
 # Print the selected option
@@ -330,6 +332,16 @@ case $choice in
         sudo dpkg -i "$GHOSTTY_DEB_FILE"
         gum style --foreground 46 "Cleaning up Ghostty Terminal package file..."
         rm "$GHOSTTY_DEB_FILE"
+        ;;
+
+    "Install Nerd Fonts")
+        gum style --foreground 46 "Running Nerd Font installer..."
+        bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/fonts/nerdfont-installer.sh)
+        ;;
+
+    "Create Swap File")
+        gum style --foreground 46 "Running swap file creation script..."
+        bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/create_swap.sh)
         ;;
 
     "Setup Development Environment")
