@@ -19,20 +19,21 @@ print_message() {
 }
 
 # Check if gum is installed
-if ! command_exists gum; then
-    print_message "$RED" "gum is required but not installed."
-    print_message "$BLUE" "Installing gum..."
-    
-    if command_exists brew; then
+if ! command -v gum &> /dev/null; then
+    echo "Gum is required but not installed. Installing..."
+    # Detect OS and install gum
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        echo "Detected macOS, installing via Homebrew..."
         brew install gum
-    elif command_exists go; then
-        go install github.com/charmbracelet/gum@latest
     else
-        print_message "$RED" "Neither Homebrew nor Go is installed. Please install gum manually:"
-        print_message "$BLUE" "Homebrew: https://brew.sh"
-        print_message "$BLUE" "Or Go: https://golang.org/doc/install"
-        exit 1
-    fi
+        # Ubuntu/Debian
+        echo "Detected Linux, installing via APT..."
+        sudo mkdir -p /etc/apt/keyrings
+        curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+        sudo apt update && sudo apt install -y gum
+    fi    
 fi
 
 # Create the installation directory

@@ -7,9 +7,9 @@ copy-on-select = clipboard
 background-blur-radius = 25
 cursor-style = bar
 
-font-size = 10.5
+font-size = 10
 font-thicken = true
-font-family = CaskaydiaCove Nerd Font
+font-family = GeistMono Nerd Font
 
 keybind = ctrl+w=close_window
 keybind = ctrl+t=new_tab
