@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Display main menu banner
+gum style --border double --margin "1" --padding "1" --border-foreground "#FF5733" "🚀 qksetup - Fast Setup Workflow cho Developer (zsh)"
+
 # Define default versions
 JAVA_VERSION="17.0.13-amzn" # Amazon Corretto 17.0.13
 MAVEN_VERSION="3.9.9"       # Maven 3.9.9
@@ -33,23 +36,23 @@ else
 fi
 
 # Main menu options
-choice=$(gum choose "Install Desktop" \
-                    "Install Packages Gnome" \
-                    "Install Libraries" \
-                    "Debloat Gnome" \
-                    "Install Ibus Bamboo" \
-                    "Fast Configuration" \
-                    "Purge Package" \
-                    "Install Ghostty Terminal"\
-                    "Install Nerd Fonts" \
-                    "Create Swap File" \
-                    "Setup Development Environment")
+choice=$(gum choose "🖥️ Install Desktop" \
+                    "📦 Install Packages Gnome" \
+                    "📚 Install Libraries" \
+                    "🧹 Debloat Gnome" \
+                    "⌨️ Install Ibus Bamboo" \
+                    "⚙️ Fast Configuration" \
+                    "🗑️ Purge Package" \
+                    "👻 Install Ghostty Terminal"\
+                    "🔠 Install Nerd Fonts" \
+                    "💾 Create Swap File" \
+                    "🛠️ Setup Development Environment")
 
 # Print the selected option
 echo "You selected: $choice"
 
 case $choice in
-"Install Packages Gnome")
+"📦 Install Packages Gnome")
     gum style --foreground 46 "Starting 'Install Packages Gnome' process..."
 
     # Install Zsh
@@ -103,19 +106,19 @@ case $choice in
     sudo apt -y install curl unzip btop neovim intel-media-va-driver-non-free libavcodec-extra gstreamer1.0-vaapi
     ;;
 
-"Install Desktop")
+"🖥️ Install Desktop")
     # Select tools to install (using gum's multi-selection feature)
     apps=$(gum choose --no-limit \
         "Chrome" \
-        "Local Send" \
-        "VSCode" \
-        "Spotify" \
-        "Zen Browsers" \
-        "Install IDEA" \
-        "Install DataGrip" \
-        "Install Zed" \
-        "Install Postman" \
-        "Other")
+        "📲 Local Send" \
+        "🆚 VSCode" \
+        "🎧 Spotify" \
+        "🌐 Zen Browsers" \
+        "💡 Install IDEA" \
+        "🛢️ Install DataGrip" \
+        "💻 Install Zed" \
+        "🛰️ Install Postman" \
+        "📦 Other")
 
     # If no tools selected, show a warning
     if [ -z "$apps" ]; then
@@ -146,7 +149,7 @@ case $choice in
             cd -
             ;;
 
-        "Local Send")
+        "📲 Local Send")
             # Install Local Send
             gum style --foreground 46 "Installing Local Send..."
             cd /tmp
@@ -156,12 +159,12 @@ case $choice in
             rm localsend.deb
             cd -
             ;;
-        "Zen Browsers")
+        "🌐 Zen Browsers")
             # Install Local Send
             gum spin --spinner minidot --title "Installing Zen Browsers..." -- bash <(curl -s https://updates.zen-browser.app/install.sh)
             ;;
 
-        "VSCode")
+        "🆚 VSCode")
             # Install VSCode
             gum style --foreground 46 "Installing VSCode..."
             cd /tmp
@@ -175,23 +178,23 @@ case $choice in
             gum style --foreground 46 "Installing VSCode package..."
             sudo apt install -y code
             ;;
-        "Install IDEA")
+        "💡 Install IDEA")
             gum style --foreground 46 "Installing IDEA..."
             sudo snap install intellij-idea-ultimate --classic
             gum style --foreground 46 "Installed IDEA."
             ;;
 
-        "Install DataGrip")
+        "🛢️ Install DataGrip")
             gum spin --spinner dot --title "Installing DataGrip..." -- sudo snap install datagrip --classic
             gum style --foreground 46 "Installed DataGrip."
             ;;
 
-        "Install Zed")
+        "💻 Install Zed")
             gum spin --spinner dot --title "Installing Zed...." --show-output false -- curl -f https://zed.dev/install.sh | sh
             gum style --foreground 46 "Installed Zed."
             ;;
 
-        "Install Postman")
+        "🛰️ Install Postman")
             gum style --foreground 46 "Installing Postman..."
             wget https://dl.pstmn.io/download/latest/linux64 -O postman.tar.gz
             sudo tar -xzf postman.tar.gz -C /opt
@@ -209,7 +212,7 @@ case $choice in
             gum style --foreground 46 "Installed Postman."
             ;;
 
-        "Install Spotify")
+        "🎧 Spotify")
             # Install Spotify
             gum style --foreground --border --align center 46 "Installing Spotify..."
             curl -sS https://download.spotify.com/debian/pubkey_6224F9941A8AA6D1.gpg | sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
@@ -218,7 +221,7 @@ case $choice in
             sudo apt install -y spotify-client
             ;;
 
-        "Other")
+        "📦 Other")
             gum style --foreground 46 "Installing gnome-tweak-tool, gnome-sushi, fzf, ripgrep, bat, eza, zoxide, plocate, btop, apache2-utils, fd-find, tldr..."
             sudo apt install -y gnome-tweak-tool
             sudo apt install -y gnome-sushi
@@ -360,15 +363,15 @@ case $choice in
     "Setup Development Environment")
         # Select tools to install (using gum's multi-selection feature)
         tools=$(gum choose --no-limit \
-                    "Install SDKMAN" \
-                    "Install Java (Amazon Corretto 17.0.13)" \
-                    "Install Maven (3.9.9)" \
-                    "Install Volta" \
-                    "Install FNM" \
-                    "Install LazyDocker" \
-                    "Install Node.js (v18 via FNM)" \
-                    "Install Yarn (v1)" \
-                    "Install Docker & Docker Compose")
+                    "🛠️ Install SDKMAN" \
+                    "☕ Install Java (Amazon Corretto 17.0.13)" \
+                    "📦 Install Maven (3.9.9)" \
+                    "⚡ Install Volta" \
+                    "📁 Install FNM" \
+                    "🐳 Install LazyDocker" \
+                    "🟩 Install Node.js (v18 via FNM)" \
+                    "🧶 Install Yarn (v1)" \
+                    "🐳 Install Docker & Docker Compose")
 
     # If no tools selected, show a warning
     if [ -z "$tools" ]; then
@@ -386,7 +389,7 @@ case $choice in
     # Loop through each selected tool and install it
     for tool in "${tool_array[@]}"; do
         case "$tool" in
-        "Install SDKMAN")
+        "🛠️ Install SDKMAN")
             if ! $SDKMAN_INSTALLED; then
                 gum style --foreground 46 "Installing SDKMAN..."
                 curl -s "https://get.sdkman.io" | bash
@@ -397,7 +400,7 @@ case $choice in
             fi
             ;;
 
-        "Install Java (Amazon Corretto 17.0.13)")
+        "☕ Install Java (Amazon Corretto 17.0.13)")
             if $SDKMAN_INSTALLED; then
                 gum style --foreground 46 "Installing Java (Amazon Corretto 17.0.13)..."
                 sdk install java $JAVA_VERSION
@@ -406,7 +409,7 @@ case $choice in
             fi
             ;;
 
-        "Install Maven (3.9.9)")
+        "📦 Install Maven (3.9.9)")
             if $SDKMAN_INSTALLED; then
                 gum style --foreground 46 "Installing Maven (3.9.9)..."
                 sdk install maven $MAVEN_VERSION
@@ -415,18 +418,18 @@ case $choice in
             fi
             ;;
 
-        "Install Volta")
+        "⚡ Install Volta")
             gum style --foreground 46 "Installing Volta..."
             curl https://get.volta.sh | bash
             source "$HOME/.volta/bin/volta"
             ;;
-        "Install FNM")
+        "📁 Install FNM")
             gum style --foreground 46 "Installing FNM..."
             curl -fsSL https://fnm.vercel.app/install | bash
             fmn install --lts
             gum style --foreground 46 "FNM installed successfully!"
             ;;
-        "Install LazyDocker")
+        "🐳 Install LazyDocker")
             gum style --foreground 46 "Installing LazyDocker..."
             cd /tmp
             LAZYDOCKER_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazydocker/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
@@ -439,7 +442,7 @@ case $choice in
             cd -
             ;;
 
-        "Install Node.js (v18 via FNM)")
+        "🟩 Install Node.js (v18 via FNM)")
             if command -v volta &>/dev/null; then
                 gum style --foreground 46 "Installing Node.js (v18)..."
                 fnm install v18
@@ -449,7 +452,7 @@ case $choice in
             fi
             ;;
 
-        "Install Yarn (v1)")
+        "🧶 Install Yarn (v1)")
             if command -v volta &>/dev/null; then
                 gum style --foreground 46 "Installing Yarn (v1)..."
                 npm install -g yarn
@@ -458,7 +461,7 @@ case $choice in
             fi
             ;;
 
-        "Install Docker & Docker Compose")
+        "🐳 Install Docker & Docker Compose")
             gum style --foreground 46 "Installing Docker & Docker Compose..."
             gum style --foreground 46 "Setting up Docker repository and key..."
             sudo install -m 0755 -d /etc/apt/keyrings
