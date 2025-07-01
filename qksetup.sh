@@ -131,7 +131,8 @@ case $choice in
     echo "$apps"
 
     # Convert the tools string into an array
-    IFS=$'\n' read -rd '' -a app_array <<<"$apps"
+    IFS=
+\n' read -rd '' -a app_array <<<"$apps"
 
     # Loop through each selected tool and install it
     for app in "${app_array[@]}"; do
@@ -153,7 +154,7 @@ case $choice in
             # Install Local Send
             gum style --foreground 46 "Installing Local Send..."
             cd /tmp
-            LOCALSEND_VERSION=$(curl -s "https://api.github.com/repos/localsend/localsend/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
+            LOCALSEND_VERSION=$(curl -s "https://api.github.com/repos/localsend/localsend/releases/latest" | grep -Po '"tag_name": "v\K[^"\\]*')
             wget -O localsend.deb "https://github.com/localsend/localsend/releases/latest/download/LocalSend-${LOCALSEND_VERSION}-linux-x86-64.deb"
             sudo apt install -y ./localsend.deb
             rm localsend.deb
@@ -233,12 +234,12 @@ case $choice in
     gum style --foreground 46 "Selected tools installation is complete!"
     ;;
 
-"Debloat Gnome")
+"🧹 Debloat Gnome")
     gum style --foreground 46 "Debloating Gnome packages..."
     sudo apt -y autopurge evolution synaptic gnome-games gnome-sound-recorder gnome-music libreoffice-core libreoffice-common gnome-contacts baobab simple-scan yelp gnome-maps rhythmbox totem transmission-gtk
     ;;
 
-"Purge Package")
+"🗑️ Purge Package")
     gum style --foreground 46 "Starting 'Purge Package' process..."
 
     # Function to search, select, and purge packages using dpkg
@@ -290,7 +291,7 @@ case $choice in
     purge_package
     ;;
 
-    "Install Ibus Bamboo")
+    "⌨️ Install Ibus Bamboo")
         gum style --foreground 46 "Installing Ibus Bamboo..."
         gum style --foreground 46 "Adding ibus-bamboo repository..."
         echo 'deb http://download.opensuse.org/repositories/home:/lamlng/Debian_12/ /' | sudo tee /etc/apt/sources.list.d/home:lamlng.list
@@ -303,7 +304,7 @@ case $choice in
         gum style --foreground 46 "IBUS-Bamboo installation complete!"
         ;;
 
-"Install Libraries")
+"📚 Install Libraries")
     gum style --foreground 46 "Installing Libraries..."
     sudo apt install -y \
         build-essential pkg-config autoconf bison clang rustc \
@@ -312,7 +313,7 @@ case $choice in
         redis-tools sqlite3 libsqlite3-0 libmysqlclient-dev libpq-dev postgresql-client postgresql-client-common
     ;;
 
-"Fast Configuration")
+"⚙️ Fast Configuration")
     gum style --foreground 196 "Disabling Hibernate..."
     sudo echo "AllowHibernation=no" >>/etc/systemd/sleep.conf
     sudo echo "AllowSuspendThenHibernate=no" >>/etc/systemd/sleep.conf
@@ -330,14 +331,14 @@ case $choice in
     tracker3 daemon --terminate
     ;;
 
-"Install Ghostty Terminal")
+"👻 Install Ghostty Terminal")
     gum style --foreground 46 "Fetching OS release information..."
     source /etc/os-release
     gum style --foreground 46 "Detecting system architecture..."
     ARCH=$(dpkg --print-architecture)
     gum style --foreground 46 "Fetching latest Ghostty Terminal release URL..."
     GHOSTTY_DEB_URL=$(
-        curl -s https://api.github.com/repos/mkasberg/ghostty-ubuntu/releases/latest |
+        curl -s https://api.github.com/repos/mkasberg/ghostty-ubuntu/releases/latest |\
             grep -oP "https://github.com/mkasberg/ghostty-ubuntu/releases/download/[^\s/]+/ghostty_[^\s/_]+_${ARCH}_${VERSION_ID}.deb"
     )
     gum style --foreground 46 "Preparing to download Ghostty Terminal package..."
@@ -350,17 +351,17 @@ case $choice in
     rm "$GHOSTTY_DEB_FILE"
     ;;
 
-    "Install Nerd Fonts")
+    "🔠 Install Nerd Fonts")
         gum style --foreground 46 "Running Nerd Font installer..."
         bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/fonts/nerdfont-installer.sh)
         ;;
 
-    "Create Swap File")
+    "💾 Create Swap File")
         gum style --foreground 46 "Running swap file creation script..."
         bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/create_swap.sh)
         ;;
 
-    "Setup Development Environment")
+    "🛠️ Setup Development Environment")
         # Select tools to install (using gum's multi-selection feature)
         tools=$(gum choose --no-limit \
                     "🛠️ Install SDKMAN" \
@@ -384,7 +385,8 @@ case $choice in
     echo "$tools"
 
     # Convert the tools string into an array
-    IFS=$'\n' read -rd '' -a tool_array <<<"$tools"
+    IFS=
+\n' read -rd '' -a tool_array <<<"$tools"
 
     # Loop through each selected tool and install it
     for tool in "${tool_array[@]}"; do
@@ -432,7 +434,7 @@ case $choice in
         "🐳 Install LazyDocker")
             gum style --foreground 46 "Installing LazyDocker..."
             cd /tmp
-            LAZYDOCKER_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazydocker/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
+            LAZYDOCKER_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazydocker/releases/latest" | grep -Po '"tag_name": "v\K[^"\\]*')
             curl -sLo lazydocker.tar.gz "https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker_${LAZYDOCKER_VERSION}_Linux_x86_64.tar.gz"
             tar -xf lazydocker.tar.gz lazydocker
             gum style --foreground 46 "Installing LazyDocker executable..."
