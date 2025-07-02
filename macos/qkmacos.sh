@@ -8,6 +8,12 @@ if ! command -v gum &> /dev/null; then
   exit 1
 fi
 
+# --- Banner ---
+gum style \
+	--foreground 212 --border-foreground 212 --border double \
+	--align center --width 50 --margin "1 2" --padding "2 4" \
+	' macOS Cleaner' 'A TUI for cleaning your macOS system'
+
 confirm_action() {
   gum confirm "Do you want to proceed with cleaning \"$1\"?" && return 0 || return 1
 }
@@ -15,7 +21,7 @@ confirm_action() {
 # --- Cleaners with gum spin ---
 clean_user_cache() {
   local user_cache=~/Library/Caches
-  confirm_action "User Cache ($user_cache)" && {
+  confirm_action "🧹 User Cache ($user_cache)" && {
     gum spin --title "Cleaning User Cache..." -- rm -rf "$user_cache"/*
   }
 }
@@ -23,14 +29,14 @@ clean_user_cache() {
 clean_system_cache() {
   local sys_cache=/Library/Caches
   sudo true
-  confirm_action "System Cache ($sys_cache)" && {
+  confirm_action "⚙️ System Cache ($sys_cache)" && {
     gum spin --title "Cleaning System Cache..." -- sudo rm -rf "$sys_cache"/*
   }
 }
 
 clean_trash() {
   local trash=~/.Trash
-  confirm_action "Trash ($trash)" && {
+  confirm_action "🗑️ Trash ($trash)" && {
     gum spin --title "Emptying Trash..." -- rm -rf "$trash"/*
   }
 }
@@ -38,19 +44,19 @@ clean_trash() {
 clean_xcode_derived_data() {
   local dd=~/Library/Developer/Xcode/DerivedData
   [[ -d $dd ]] || return 0
-  confirm_action "Xcode DerivedData ($dd)" && {
+  confirm_action "📦 Xcode DerivedData ($dd)" && {
     gum spin --title "Cleaning Xcode DerivedData..." -- rm -rf "$dd"/*
   }
 }
 
 restart_finder() {
-  confirm_action "Restart Finder" && {
+  confirm_action "🔄 Restart Finder" && {
     gum spin --title "Restarting Finder..." -- killall Finder
   }
 }
 
 restart_dock() {
-  confirm_action "Restart Dock" && {
+  confirm_action "🔁 Restart Dock" && {
     gum spin --title "Restarting Dock..." -- killall Dock
   }
 }
