@@ -17,24 +17,24 @@ curl -fsSL https://raw.githubusercontent.com/comchienlab/linux-setup/main/instal
 These are a series of "quick" commands to automate common developer tasks.
 
 <details>
-<summary><code>qksetup</code> - Quick Setup Operations</summary>
+<summary><code>fsetup</code> - Quick Setup Operations</summary>
 
 This script provides a menu-driven interface using `gum` to perform various setup tasks like updating the system, installing development tools, and setting up programming language environments.
 
 To run, type the following command in your terminal:
 ```sh
-qksetup
+fsetup
 ```
 </details>
 
 <details>
-<summary><code>qkgit</code> - Quick Git Operations</summary>
+<summary><code>fgit</code> - Quick Git Operations</summary>
 
 A script to simplify common Git workflows. It helps with tasks like adding, committing, and pushing changes, as well as more complex operations like rebasing and tagging.
 
 To run, type the following command in your terminal:
 ```sh
-qkgit
+fgit
 ```
 </details>
 

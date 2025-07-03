@@ -17,16 +17,18 @@ if ! git rev-parse --is-inside-work-tree &> /dev/null; then
 fi
 
 get_emoji() {
+    local emoji
     case $1 in
-        "feat") echo "✨" ;;
-        "refactor") echo "🔥" ;;
-        "fix") echo "🐞" ;;
-        "docs") echo "📚" ;;
-        "style") echo "🎨" ;;
-        "test") echo "✅" ;;
-        "chore") echo "🔧" ;;
-        *) echo "❓" ;;
+        "feat") emoji="✨" ;;
+        "refactor") emoji="🔄" ;;
+        "fix") emoji="🐞" ;;
+        "docs") emoji="📚" ;;
+        "style") emoji="🎨" ;;
+        "test") emoji="✅" ;;
+        "chore") emoji="🔧" ;;
+        *) emoji="❓" ;;
     esac
+    echo "$emoji"
 }
 
 # Top-level group menu with improved styling
@@ -89,10 +91,11 @@ case $action in
         branch=$(git branch --all | grep -v HEAD | sed 's/^..//' | gum filter --placeholder "🔎 Search and select a branch to checkout")
         if [ -n "$branch" ]; then
             branch=$(echo "$branch" | sed 's/^\s*remotes\/origin\///')
-            gum confirm "🔄 Checkout branch: $branch?" && {
-                gum spin --spinner dot --title "🔄 Switching branches..." -- git checkout "$branch" ||
-                gum style --foreground 196 "❌ Failed to checkout branch."
-            }
+            if gum confirm "🔄 Checkout branch: $branch?"; then
+                if ! gum spin --spinner dot --title "🔄 Switching branches..." -- git checkout "$branch"; then
+                    gum style --foreground 196 "❌ Failed to checkout branch."
+                fi
+            fi
         else
             gum style --foreground 196 "❌ No branch selected."
         fi
@@ -101,7 +104,15 @@ case $action in
     "🌱 Checkout to new branch from develop")
         gum spin --spinner dot --title.foreground "#3498db" --title "⏳ Fetching latest remote branches..." -- git fetch --all --quiet --prune
         branch_type=$(gum choose "🔥 refactor" "🐞 fix" "✨ feat" "📚 docs")
+        if [ -z "$branch_type" ]; then
+            gum style --foreground 196 "❌ No branch type selected."
+            exit 1
+        fi
         method=$(gum choose "✍️ Manual description" "🔗 From Jira link")
+        if [ -z "$method" ]; then
+            gum style --foreground 196 "❌ No method selected."
+            exit 1
+        fi
 
         if [ "$method" = "✍️ Manual description" ]; then
             branch_desc=$(gum input --placeholder "📝 Enter short description (e.g., bug fix, new api)")
@@ -112,6 +123,10 @@ case $action in
             branch_desc=$(echo "$branch_desc" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
         else
             jira_link=$(gum input --placeholder "🔗 Enter Jira link (e.g., https://jira-local.ots.vn/browse/C8P2-241)")
+            if [ -z "$jira_link" ]; then
+                gum style --foreground 196 "❌ Jira link cannot be empty."
+                exit 1
+            fi
             issue_key=${jira_link##*/}
             if [ -z "$issue_key" ]; then
                 gum style --foreground 196 "❌ Invalid Jira link. Could not extract issue key."
@@ -122,9 +137,14 @@ case $action in
 
         new_branch="${branch_type#* }/${branch_desc}"
         echo "🌿 Branch: $new_branch"
-        git checkout -b "$new_branch" "origin/develop"
-        gum confirm "⬆️ Push '$new_branch' to origin?" && git push --set-upstream origin "$new_branch"
-        gum style --foreground 46 "✅ Branch '$new_branch' created and set up successfully!"
+        if git checkout -b "$new_branch" "origin/develop"; then
+            if gum confirm "⬆️ Push '$new_branch' to origin?"; then
+                git push --set-upstream origin "$new_branch"
+            fi
+            gum style --foreground 46 "✅ Branch '$new_branch' created and set up successfully!"
+        else
+            gum style --foreground 196 "❌ Failed to create branch '$new_branch'."
+        fi
         ;;
 
     "➕ Checkout to new branch")
@@ -161,26 +181,30 @@ case $action in
             "🎨 style(all): - formatting changes." \
             "✅ test(all): - add/update tests." \
             "🔧 chore(all): - maintenance tasks.")
+        if [ -z "$commit_message" ]; then
+            gum style --foreground 196 "❌ No commit message selected."
+            exit 1
+        fi
         gum style --foreground 220 "📊 Changes to be committed:"
         git diff --cached --name-status | gum format
-        gum confirm "💾 Commit with message: '$commit_message'?" && {
+        if gum confirm "💾 Commit with message: '$commit_message'?"; then
             git add .
-            gum spin --spinner dot --title "⏳ Committing changes..." -- git commit -m "$commit_message" || {
+            if gum spin --spinner dot --title "⏳ Committing changes..." -- git commit -m "$commit_message"; then
+                current_branch=$(git rev-parse --abbrev-ref HEAD)
+                if gum confirm "⬆️ Push to '$current_branch'?"; then
+                    gum spin --spinner jump --title "⬆️ Pushing changes..." -- git push origin "$current_branch"
+                    gum style \
+                        --border thick \
+                        --width 50\
+                        --border-foreground "#16a085" \
+                        --padding "1 5" \
+                        --margin "1" \
+                        "✅ Changes committed and pushed to $current_branch successfully."
+                fi
+            else
                 gum style --foreground 196 "❌ Commit failed. Ensure there are changes to commit."
-                exit 1
-            }
-            current_branch=$(git rev-parse --abbrev-ref HEAD)
-            gum confirm "⬆️ Push to '$current_branch'?" && {
-                gum spin --spinner jump --title "⬆️ Pushing changes..." -- git push origin "$current_branch"
-                gum style \
-                    --border thick \
-                    --width 50\
-                    --border-foreground "#16a085" \
-                    --padding "1 5" \
-                    --margin "1" \
-                    "✅ Changes committed and pushed to $current_branch successfully."
-            }
-        }
+            fi
+        fi
         ;;
 
     "✍️ Commit with Custom Message")
@@ -192,34 +216,46 @@ case $action in
             "🎨 style" \
             "✅ test" \
             "🔧 chore")
+        if [ -z "$commit_type" ]; then
+            gum style --foreground 196 "❌ No commit type selected."
+            exit 1
+        fi
         emoji=$(get_emoji "${commit_type#* }")
         gum style --foreground "#3498db" "📍 Enter the zone/scope (e.g., button, auth, api):"
         zone=$(gum input --placeholder "zone/scope")
+        if [ -z "$zone" ]; then
+            gum style --foreground 196 "❌ Zone/scope cannot be empty."
+            exit 1
+        fi
         gum style --foreground "#3498db" "📝 Enter commit description:"
         description=$(gum input --placeholder "Enter short description..." --width 256)
+        if [ -z "$description" ]; then
+            gum style --foreground 196 "❌ Description cannot be empty."
+            exit 1
+        fi
         commit_message="${commit_type#* }($zone): $emoji - $description."
         gum style --foreground "#f1c40f" "📊 Changes to be committed:"
         git diff --cached --name-status | gum format
         gum style --foreground "#8e44ad" "📜 Commit message preview:"
         gum style --foreground "#2980b9" "$commit_message"
-        gum confirm "💾 Commit with message above?" && {
+        if gum confirm "💾 Commit with message above?"; then
             git add .
-            gum spin --spinner monkey --title "⏳ Committing changes..." -- git commit -m "$commit_message" || {
+            if gum spin --spinner monkey --title "⏳ Committing changes..." -- git commit -m "$commit_message"; then
+                current_branch=$(git rev-parse --abbrev-ref HEAD)
+                if gum confirm "⬆️ Push to '$current_branch'?"; then
+                    gum spin --spinner monkey --title "⬆️ Pushing changes..." -- git push origin "$current_branch"
+                    gum style \
+                        --border thick \
+                        --width 50\
+                        --border-foreground "#16a085" \
+                        --padding "1 5" \
+                        --margin "1" \
+                        "🚀 Changes committed and pushed to $current_branch successfully."
+                fi
+            else
                 gum style --foreground "#c0392b" "❌ Commit failed. Ensure there are changes to commit."
-                exit 1
-            }
-            current_branch=$(git rev-parse --abbrev-ref HEAD)
-            gum confirm "⬆️ Push to '$current_branch'?" && {
-                gum spin --spinner monkey --title "⬆️ Pushing changes..." -- git push origin "$current_branch"
-                gum style \
-                    --border thick \
-                    --width 50\
-                    --border-foreground "#16a085" \
-                    --padding "1 5" \
-                    --margin "1" \
-                    "🚀 Changes committed and pushed to $current_branch successfully."
-            }
-        }
+            fi
+        fi
         ;;
 
     "⬇️ Pull Latest Changes")
@@ -245,7 +281,12 @@ case $action in
         ;;
 
     "📥 Stash current changes")
-        git stash push -m "$(gum input --placeholder '📝 Enter stash message')"
+        stash_message=$(gum input --placeholder '📝 Enter stash message')
+        if [ -z "$stash_message" ]; then
+            gum style --foreground 196 "❌ Stash message cannot be empty."
+            exit 1
+        fi
+        git stash push -m "$stash_message"
         gum style --foreground 46 "✅ Changes have been stashed successfully!"
         ;;
 
@@ -255,9 +296,13 @@ case $action in
             gum style --foreground 196 "❌ No stash found!"
         else
             selected_stash=$(echo "$stash_list" | gum choose)
-            stash_index=$(echo "$selected_stash" | awk '{print $1}')
-            git stash apply "$stash_index"
-            gum style --foreground 46 "✅ Stash $stash_index has been applied!"
+            if [ -n "$selected_stash" ]; then
+                stash_index=$(echo "$selected_stash" | awk '{print $1}')
+                git stash apply "$stash_index"
+                gum style --foreground 46 "✅ Stash $stash_index has been applied!"
+            else
+                gum style --foreground 196 "❌ No stash selected."
+            fi
         fi
         ;;
 
@@ -267,11 +312,15 @@ case $action in
             gum style --foreground 196 "❌ No stash found!"
         else
             selected_stash=$(echo "$stash_list" | gum choose)
-            stash_index=$(echo "$selected_stash" | awk '{print $1}')
-            gum confirm "🗑️ Delete $stash_index?" && {
-                git stash drop "$stash_index"
-                gum style --foreground 46 "✅ Stash $stash_index has been deleted!"
-            }
+            if [ -n "$selected_stash" ]; then
+                stash_index=$(echo "$selected_stash" | awk '{print $1}')
+                if gum confirm "🗑️ Delete $stash_index?"; then
+                    git stash drop "$stash_index"
+                    gum style --foreground 46 "✅ Stash $stash_index has been deleted!"
+                fi
+            else
+                gum style --foreground 196 "❌ No stash selected."
+            fi
         fi
         ;;
 
@@ -289,16 +338,16 @@ case $action in
         ;;
 
     "🔄 Update Packages")
-        gum confirm "🔄 Update and upgrade system packages?" && {
+        if gum confirm "🔄 Update and upgrade system packages?"; then
             gum spin --spinner dot --title "⏳ Updating package lists..." -- sudo apt-get update
             gum spin --spinner dot --title "⏳ Upgrading packages..." -- sudo apt-get upgrade -y
             gum spin --spinner dot --title "⏳ Cleaning up..." -- sudo apt-get autoremove -y
             gum style --foreground "#27ae60" "✅ System packages updated successfully."
-        }
+        fi
         ;;
 
     "🚀 Full System Upgrade")
-        gum confirm "🚀 Perform full system upgrade (including release upgrade)?" && {
+        if gum confirm "🚀 Perform full system upgrade (including release upgrade)?"; then
             gum spin --spinner dot --title "⏳ Backing up /etc directory..." -- sudo tar -czf /etc_backup_$(date +%F).tar.gz /etc
             gum spin --spinner dot --title "⏳ Updating package lists..." -- sudo apt-get update
             gum spin --spinner dot --title "⏳ Upgrading packages..." -- sudo apt-get upgrade -y
@@ -306,10 +355,12 @@ case $action in
             gum spin --spinner dot --title "⏳ Cleaning up..." -- sudo apt-get autoremove -y
             gum spin --spinner pulse --title "⏳ Performing release upgrade..." -- sudo do-release-upgrade -f DistUpgradeViewNonInteractive
             if [ -f /var/run/reboot-required ]; then
-                gum confirm "🔄 Reboot required. Reboot now?" && sudo reboot
+                if gum confirm "🔄 Reboot required. Reboot now?"; then
+                    sudo reboot
+                fi
             fi
             gum style --foreground "#27ae60" "✅ System upgrade completed successfully."
-        }
+        fi
         ;;
 
     *)

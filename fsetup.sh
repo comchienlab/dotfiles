@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Display main menu banner
-gum style --border double --margin "1" --padding "1" --border-foreground "#FF5733" "🚀 qksetup - Fast Setup Workflow cho Developer (zsh)"
+gum style --border double --margin "1" --padding "1" --border-foreground "#FF5733" "✅ fsetup process completed!"
 
 # Define default versions
 JAVA_VERSION="17.0.13-amzn" # Amazon Corretto 17.0.13
@@ -17,6 +17,10 @@ if ! command -v gum &>/dev/null; then
     # Detect OS and install gum
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS
+        if ! command -v brew &>/dev/null; then
+            gum style --foreground 196 "Homebrew is not installed. Please install it first."
+            exit 1
+        fi
         brew install gum
     else
         # Ubuntu/Debian
@@ -252,13 +256,17 @@ case $choice in
 
         # Prompt the user to input the search query
         search_query=$(gum input --placeholder "Enter package name to search")
+        if [ -z "$search_query" ]; then
+            gum style --foreground 196 "❌ Search query cannot be empty."
+            exit 1
+        fi
 
         # Use dpkg to list installed packages and filter by the search query
         packages=$(dpkg --get-selections | grep "$search_query" | awk '{print $1}')
 
         # If no packages match the search query, exit
         if [ -z "$packages" ]; then
-            echo "No packages found for the search term '$search_query'."
+            gum style --foreground 196 "No packages found for the search term '$search_query'."
             exit 1
         fi
 
@@ -267,16 +275,13 @@ case $choice in
 
         # If no package is selected, exit
         if [ -z "$selected_package" ]; then
-            echo "No package selected for purging."
+            gum style --foreground 196 "No package selected for purging."
             exit 1
         fi
 
         # Confirm the action with the user
         echo "You selected: $selected_package"
-        confirm=$(echo -e "Yes\nNo" | gum choose --prompt "Are you sure you want to purge $selected_package?")
-
-        # If the user confirms, purge the selected package
-        if [ "$confirm" == "Yes" ]; then
+        if gum confirm "Are you sure you want to purge $selected_package?"; then
             echo "Purging $selected_package..."
             sudo dpkg --purge "$selected_package"
             sudo apt-get autoremove -y # Remove dependencies that are no longer needed
@@ -338,9 +343,13 @@ case $choice in
     ARCH=$(dpkg --print-architecture)
     gum style --foreground 46 "Fetching latest Ghostty Terminal release URL..."
     GHOSTTY_DEB_URL=$(
-        curl -s https://api.github.com/repos/mkasberg/ghostty-ubuntu/releases/latest |\
+        curl -s https://api.github.com/repos/mkasberg/ghostty-ubuntu/releases/latest |
             grep -oP "https://github.com/mkasberg/ghostty-ubuntu/releases/download/[^\s/]+/ghostty_[^\s/_]+_${ARCH}_${VERSION_ID}.deb"
     )
+    if [ -z "$GHOSTTY_DEB_URL" ]; then
+        gum style --foreground 196 "❌ Could not find a compatible Ghostty Terminal release for your system."
+        exit 1
+    fi
     gum style --foreground 46 "Preparing to download Ghostty Terminal package..."
     GHOSTTY_DEB_FILE=$(basename "$GHOSTTY_DEB_URL")
     gum style --foreground 46 "Downloading Ghostty Terminal package..."
@@ -386,6 +395,11 @@ case $choice in
 
     # Convert the tools string into an array
     IFS=
+
+    *)
+        gum style --foreground 160 "Invalid selection!"
+        ;;
+esac
 \n' read -rd '' -a tool_array <<<"$tools"
 
     # Loop through each selected tool and install it
@@ -428,13 +442,13 @@ case $choice in
         "📁 Install FNM")
             gum style --foreground 46 "Installing FNM..."
             curl -fsSL https://fnm.vercel.app/install | bash
-            fmn install --lts
+            fnm install --lts
             gum style --foreground 46 "FNM installed successfully!"
             ;;
         "🐳 Install LazyDocker")
             gum style --foreground 46 "Installing LazyDocker..."
             cd /tmp
-            LAZYDOCKER_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazydocker/releases/latest" | grep -Po '"tag_name": "v\K[^"\\]*')
+            LAZYDOCKER_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazydocker/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
             curl -sLo lazydocker.tar.gz "https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker_${LAZYDOCKER_VERSION}_Linux_x86_64.tar.gz"
             tar -xf lazydocker.tar.gz lazydocker
             gum style --foreground 46 "Installing LazyDocker executable..."
@@ -445,21 +459,21 @@ case $choice in
             ;;
 
         "🟩 Install Node.js (v18 via FNM)")
-            if command -v volta &>/dev/null; then
+            if command -v fnm &>/dev/null; then
                 gum style --foreground 46 "Installing Node.js (v18)..."
                 fnm install v18
                 fnm use v18
             else
-                gum style --foreground 196 "Volta is not installed. Install Volta first."
+                gum style --foreground 196 "FNM is not installed. Install FNM first."
             fi
             ;;
 
         "🧶 Install Yarn (v1)")
-            if command -v volta &>/dev/null; then
+            if command -v npm &>/dev/null; then
                 gum style --foreground 46 "Installing Yarn (v1)..."
                 npm install -g yarn
             else
-                gum style --foreground 196 "Volta is not installed. Install Volta first."
+                gum style --foreground 196 "NPM is not installed. Install Node.js and NPM first."
             fi
             ;;
 
