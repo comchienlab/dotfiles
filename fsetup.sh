@@ -359,15 +359,15 @@ case $choice in
     rm "$GHOSTTY_DEB_FILE"
     ;;
 
-    "🔠 Install Nerd Fonts")
-        gum style --foreground 46 "Running Nerd Font installer..."
-        bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/fonts/nerdfont-installer.sh)
-        ;;
+"🔠 Install Nerd Fonts")
+    gum style --foreground 46 "Running Nerd Font installer..."
+    bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/fonts/nerdfont-installer.sh)
+    ;;
 
-    "💾 Create Swap File")
-        gum style --foreground 46 "Running swap file creation script..."
-        bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/create_swap.sh)
-        ;;
+"💾 Create Swap File")
+    gum style --foreground 46 "Running swap file creation script..."
+    bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/create_swap.sh)
+    ;;
 
 "🛠️ Setup Development Environment")
     tools=$(gum choose --no-limit \
