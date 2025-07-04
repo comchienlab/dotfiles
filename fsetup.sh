@@ -61,7 +61,7 @@ case $choice in
 
     # Install Zsh
     gum style --foreground 46 "Installing Zsh..."
-    sudo apt install zsh
+    sudo apt install -y zsh
     gum style --foreground 46 "Changing default shell to zsh..."
     chsh -s $(which zsh)
     gum style --foreground 46 "Downloading .zshrc configuration..."
@@ -77,7 +77,7 @@ case $choice in
 
     # Install Git
     gum style --foreground 46 "Installing Git..."
-    sudo apt install git
+    sudo apt install -y git
     gum style --foreground 46 "Configuring Git aliases..."
     git config --global alias.co checkout
     git config --global alias.br branch
@@ -89,6 +89,7 @@ case $choice in
     gum style --foreground 46 "Installing starship shell prompt..."
     curl -sS https://starship.rs/install.sh | sh
     gum style --foreground 46 "Downloading starship configuration..."
+    mkdir -p ~/.config
     curl -fsSL -o ~/.config/starship.toml ${STARSHIP_CONFIG}
 
     # Enable contrib and non-free repo
@@ -135,8 +136,7 @@ case $choice in
     echo "$apps"
 
     # Convert the tools string into an array
-    IFS=
-\n' read -rd '' -a app_array <<<"$apps"
+    IFS=$'\n' read -rd '' -a app_array <<<"$apps"
 
     # Loop through each selected tool and install it
     for app in "${app_array[@]}"; do
@@ -195,7 +195,7 @@ case $choice in
             ;;
 
         "💻 Install Zed")
-            gum spin --spinner dot --title "Installing Zed...." --show-output false -- curl -f https://zed.dev/install.sh | sh
+            gum spin --spinner dot --title "Installing Zed...." -- curl -f https://zed.dev/install.sh | sh
             gum style --foreground 46 "Installed Zed."
             ;;
 
@@ -205,21 +205,21 @@ case $choice in
             sudo tar -xzf postman.tar.gz -C /opt
             sudo ln -s /opt/Postman/Postman /usr/bin/postman
             rm postman.tar.gz
-            echo """
-                        [Desktop Entry]
-                        Type=Application
-                        Name=Postman
-                        Icon=/opt/Postman/app/resources/app/assets/icon.png
-                        Exec="/opt/Postman/Postman"
-                        Comment=Postman Desktop App
-                        Categories=Development;Code;
-                        """ >>/usr/share/applications/postman.desktop
+            sudo tee /usr/share/applications/postman.desktop > /dev/null << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Postman
+Icon=/opt/Postman/app/resources/app/assets/icon.png
+Exec=/opt/Postman/Postman
+Comment=Postman Desktop App
+Categories=Development;Code;
+EOF
             gum style --foreground 46 "Installed Postman."
             ;;
 
         "🎧 Spotify")
             # Install Spotify
-            gum style --foreground --border --align center 46 "Installing Spotify..."
+            gum style --foreground 46 "Installing Spotify..."
             curl -sS https://download.spotify.com/debian/pubkey_6224F9941A8AA6D1.gpg | sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
             echo "deb [signed-by=/etc/apt/trusted.gpg.d/spotify.gpg] http://repository.spotify.com stable non-free" | sudo tee /etc/apt/sources.list.d/spotify.list
             sudo apt update
@@ -320,8 +320,8 @@ case $choice in
 
 "⚙️ Fast Configuration")
     gum style --foreground 196 "Disabling Hibernate..."
-    sudo echo "AllowHibernation=no" >>/etc/systemd/sleep.conf
-    sudo echo "AllowSuspendThenHibernate=no" >>/etc/systemd/sleep.conf
+    echo "AllowHibernation=no" | sudo tee -a /etc/systemd/sleep.conf > /dev/null
+    echo "AllowSuspendThenHibernate=no" | sudo tee -a /etc/systemd/sleep.conf > /dev/null
 
     gum style --foreground 196 "Disabling Tracker services..."
     systemctl --user mask tracker-extract-3 tracker-miner-fs-3 tracker-miner-control-3 tracker-miner-rss-3 tracker-writeback-3 tracker-xdg-portal-3
@@ -393,13 +393,7 @@ case $choice in
     echo "$tools"
 
     # Convert the tools string into an array
-    IFS=
-
-    *)
-        gum style --foreground 160 "Invalid selection!"
-        ;;
-esac
-\n' read -rd '' -a tool_array <<<"$tools"
+    IFS=$'\n' read -rd '' -a tool_array <<<"$tools"
 
     # Loop through each selected tool and install it
     for tool in "${tool_array[@]}"; do
@@ -499,7 +493,7 @@ esac
         gum style --foreground 46 "Selected tools installation is complete!"
         ;;
 
-    *)
-        gum style --foreground 160 "Invalid selection!"
-        ;;
+*)
+    gum style --foreground 160 "Invalid selection!"
+    ;;
 esac
