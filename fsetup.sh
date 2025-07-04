@@ -135,8 +135,7 @@ case $choice in
     echo "$apps"
 
     # Convert the tools string into an array
-    IFS=
-\n' read -rd '' -a app_array <<<"$apps"
+    IFS=$'\n' read -rd '' -a app_array <<<"$apps"
 
     # Loop through each selected tool and install it
     for app in "${app_array[@]}"; do
@@ -296,18 +295,18 @@ case $choice in
     purge_package
     ;;
 
-    "⌨️ Install Ibus Bamboo")
-        gum style --foreground 46 "Installing Ibus Bamboo..."
-        gum style --foreground 46 "Adding ibus-bamboo repository..."
-        echo 'deb http://download.opensuse.org/repositories/home:/lamlng/Debian_12/ /' | sudo tee /etc/apt/sources.list.d/home:lamlng.list
-        gum style --foreground 46 "Adding ibus-bamboo repository key..."
-        curl -fsSL https://download.opensuse.org/repositories/home:lamlng/Debian_12/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_lamlng.gpg > /dev/null
-        gum style --foreground 46 "Updating apt repositories..."
-        sudo apt update
-        gum style --foreground 46 "Installing ibus-bamboo package..."
-        sudo apt -y install ibus-bamboo
-        gum style --foreground 46 "IBUS-Bamboo installation complete!"
-        ;;
+"⌨️ Install Ibus Bamboo")
+    gum style --foreground 46 "Installing Ibus Bamboo..."
+    gum style --foreground 46 "Adding ibus-bamboo repository..."
+    echo 'deb http://download.opensuse.org/repositories/home:/lamlng/Debian_12/ /' | sudo tee /etc/apt/sources.list.d/home:lamlng.list
+    gum style --foreground 46 "Adding ibus-bamboo repository key..."
+    curl -fsSL https://download.opensuse.org/repositories/home:lamlng/Debian_12/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_lamlng.gpg > /dev/null
+    gum style --foreground 46 "Updating apt repositories..."
+    sudo apt update
+    gum style --foreground 46 "Installing ibus-bamboo package..."
+    sudo apt -y install ibus-bamboo
+    gum style --foreground 46 "IBUS-Bamboo installation complete!"
+    ;;
 
 "📚 Install Libraries")
     gum style --foreground 46 "Installing Libraries..."
@@ -370,17 +369,17 @@ case $choice in
         bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/create_swap.sh)
         ;;
 
-    "🛠️ Setup Development Environment")
-        tools=$(gum choose --no-limit \
-                    "🛠️ Install SDKMAN" \
-                    "☕ Install Java (Amazon Corretto 17.0.13)" \
-                    "📦 Install Maven (3.9.9)" \
-                    "⚡ Install Volta" \
-                    "📁 Install FNM" \
-                    "🐳 Install LazyDocker" \
-                    "🟩 Install Node.js (v18 via FNM)" \
-                    "🧶 Install Yarn (v1)" \
-                    "🐳 Install Docker & Docker Compose")
+"🛠️ Setup Development Environment")
+    tools=$(gum choose --no-limit \
+                "🛠️ Install SDKMAN" \
+                "☕ Install Java (Amazon Corretto 17.0.13)" \
+                "📦 Install Maven (3.9.9)" \
+                "⚡ Install Volta" \
+                "📁 Install FNM" \
+                "🐳 Install LazyDocker" \
+                "🟩 Install Node.js (v18 via FNM)" \
+                "🧶 Install Yarn (v1)" \
+                "🐳 Install Docker & Docker Compose")
 
     # If no tools selected, show a warning
     if [ -z "$tools" ]; then
@@ -393,13 +392,7 @@ case $choice in
     echo "$tools"
 
     # Convert the tools string into an array
-    IFS=
-
-    *)
-        gum style --foreground 160 "Invalid selection!"
-        ;;
-esac
-\n' read -rd '' -a tool_array <<<"$tools"
+    IFS=$'\n' read -rd '' -a tool_array <<<"$tools"
 
     # Loop through each selected tool and install it
     for tool in "${tool_array[@]}"; do
@@ -496,10 +489,11 @@ esac
         esac
     done
 
-        gum style --foreground 46 "Selected tools installation is complete!"
-        ;;
+    gum style --foreground 46 "Selected tools installation is complete!"
+    ;;
 
-    *)
-        gum style --foreground 160 "Invalid selection!"
-        ;;
+*)
+    gum style --foreground 196 "❌ Invalid selection! Please select a valid option from the menu."
+    exit 1
+    ;;
 esac
