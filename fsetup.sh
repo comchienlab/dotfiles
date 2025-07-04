@@ -371,7 +371,6 @@ case $choice in
         ;;
 
     "🛠️ Setup Development Environment")
-        # Select tools to install (using gum's multi-selection feature)
         tools=$(gum choose --no-limit \
                     "🛠️ Install SDKMAN" \
                     "☕ Install Java (Amazon Corretto 17.0.13)" \
