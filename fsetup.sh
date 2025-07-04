@@ -135,8 +135,7 @@ case $choice in
     echo "$apps"
 
     # Convert the tools string into an array
-    IFS=
-\n' read -rd '' -a app_array <<<"$apps"
+    IFS=$'\n' read -rd '' -a app_array <<<"$apps"
 
     # Loop through each selected tool and install it
     for app in "${app_array[@]}"; do
@@ -393,13 +392,7 @@ case $choice in
     echo "$tools"
 
     # Convert the tools string into an array
-    IFS=
-
-    *)
-        gum style --foreground 160 "Invalid selection!"
-        ;;
-esac
-\n' read -rd '' -a tool_array <<<"$tools"
+    IFS=$'\n' read -rd '' -a tool_array <<<"$tools"
 
     # Loop through each selected tool and install it
     for tool in "${tool_array[@]}"; do
@@ -499,7 +492,8 @@ esac
         gum style --foreground 46 "Selected tools installation is complete!"
         ;;
 
-    *)
-        gum style --foreground 160 "Invalid selection!"
-        ;;
+*)
+    gum style --foreground 196 "❌ Invalid selection. Please choose a valid menu option."
+    exit 1
+    ;;
 esac
