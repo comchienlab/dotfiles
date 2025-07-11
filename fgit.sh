@@ -122,7 +122,7 @@ case $action in
             fi
             branch_desc=$(echo "$branch_desc" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
         else
-            jira_link=$(gum input --placeholder "🔗 Enter Jira link (e.g., https://jira-local.ots.vn/browse/C8P2-241)")
+            jira_link=$(gum input --placeholder "🔗 Enter Jira link (e.g., https://jira-local.example.com/browse/C8P2-241)")
             if [ -z "$jira_link" ]; then
                 gum style --foreground 196 "❌ Jira link cannot be empty."
                 exit 1
