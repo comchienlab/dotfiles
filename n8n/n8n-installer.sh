@@ -23,6 +23,18 @@ if ! command -v jq &>/dev/null; then
   "
 fi
 
+# Ensure dnsutils is installed for dig
+if ! command -v dig &>/dev/null; then
+  gum spin --spinner dot --title "Installing dnsutils..." -- bash -c "
+    apt-get update &&
+    apt-get install -y dnsutils
+  "
+  if ! command -v dig &>/dev/null; then
+    gum style --foreground 9 "The 'dig' command is required but could not be installed. Aborting."
+    exit 1
+  fi
+fi
+
 # Prompt user to choose an action
 ACTION=$(gum choose "Install n8n" "Update n8n" "Show current n8n version")
 
