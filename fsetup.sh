@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Display main menu banner
-gum style --border double --margin "1" --padding "1" --border-foreground "#FF5733" "✅ fsetup process completed!"
+# Display startup banner
+gum style --border double --margin "1" --padding "1" --border-foreground "#FF5733" "🚀 fsetup – Quick setup operations"
 
 # Define default versions
 JAVA_VERSION="17.0.13-amzn" # Amazon Corretto 17.0.13
