@@ -47,10 +47,11 @@ case $feature_group in
             "📜 View Git Log")
         ;;
     "🌿 Branch Management")
-        action=$(gum choose --height 7 --cursor.foreground "#FF0" \
+        action=$(gum choose --height 8 --cursor.foreground "#FF0" \
             "🌱 Checkout to new branch from develop" \
             "🔀 Checkout Another Branch" \
-            "➕ Checkout to new branch")
+            "➕ Checkout to new branch" \
+            "📅 Create feature branch with date pattern")
         ;;
     "💾 Commit")
         action=$(gum choose --height 5 --cursor.foreground "#FF0" \
@@ -169,6 +170,21 @@ case $action in
         git checkout -b "$new_branch" "$selected_branch"
         gum confirm "⬆️ Push '$new_branch' to origin?" && git push --set-upstream origin "$new_branch"
         gum style --foreground 46 "✅ Branch '$new_branch' created and set up successfully!"
+        ;;
+
+    "📅 Create feature branch with date pattern")
+        gum spin --spinner dot --title.foreground "#3498db" --title "⏳ Fetching latest remote branches..." -- git fetch --all --quiet --prune
+        current_date=$(date +%Y%m%d)
+        new_branch="feature/$current_date"
+        echo "📅 Branch: $new_branch"
+        if git checkout -b "$new_branch" "origin/develop"; then
+            if gum confirm "⬆️ Push '$new_branch' to origin?"; then
+                git push --set-upstream origin "$new_branch"
+            fi
+            gum style --foreground 46 "✅ Branch '$new_branch' created and set up successfully!"
+        else
+            gum style --foreground 196 "❌ Failed to create branch '$new_branch'."
+        fi
         ;;
 
     "📝 Commit with Default Message")
