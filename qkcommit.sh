@@ -39,17 +39,8 @@ show_preview
 commit_scope=$(gum input --placeholder "Enter scope (optional)")
 show_preview
 
-# Select icon from Gitmoji options
-commit_icon=$(gum choose "✨ - New feature" "🐛 - Bug fix" "📝 - Documentation" "🎨 - Code style improvements" \
-                      "♻️ - Refactoring" "⚡ - Performance improvements" "🚀 - New functionality" \
-                      "🚧 - Work in progress" "✅ - Adding tests" "🔧 - Configuration changes" "🔒 - Security fixes" \
-                      "⬆️ - Dependency updates" "⬇️ - Downgrade dependencies" "🔥 - Removing code/files" \
-                      "💄 - UI updates" "📈 - Analytics or tracking" "🐳 - Docker-related changes" "🔖 - Version tagging" \
-                      "🎉 - Initial commit" "➕ - Adding dependencies" "🔄 - Dependency updates")
-
-                      
-# Extract the actual emoji from the selection for formatting
-commit_icon=$(echo "$commit_icon" | awk '{print $1}')
+# Select icon from Gitmoji options using common library function
+commit_icon=$(select_commit_emoji)
 show_preview
 
 # Prompt for main commit message with preview

@@ -66,7 +66,7 @@ check_git_repository() {
     fi
 }
 
-# Get emoji for commit type
+# Get emoji for commit type (basic mapping)
 get_commit_emoji() {
     local commit_type=$1
     local emoji
@@ -85,6 +85,42 @@ get_commit_emoji() {
     esac
     
     echo "$emoji"
+}
+
+# Interactive emoji selection using gum (full Gitmoji palette)
+# Returns just the emoji character
+select_commit_emoji() {
+    if ! command_exists gum; then
+        echo "❓"
+        return
+    fi
+    
+    local selection
+    selection=$(gum choose \
+        "✨ - New feature" \
+        "🐛 - Bug fix" \
+        "📝 - Documentation" \
+        "🎨 - Code style improvements" \
+        "♻️ - Refactoring" \
+        "⚡ - Performance improvements" \
+        "🚀 - New functionality" \
+        "🚧 - Work in progress" \
+        "✅ - Adding tests" \
+        "🔧 - Configuration changes" \
+        "🔒 - Security fixes" \
+        "⬆️ - Dependency updates" \
+        "⬇️ - Downgrade dependencies" \
+        "🔥 - Removing code/files" \
+        "💄 - UI updates" \
+        "📈 - Analytics or tracking" \
+        "🐳 - Docker-related changes" \
+        "🔖 - Version tagging" \
+        "🎉 - Initial commit" \
+        "➕ - Adding dependencies" \
+        "🔄 - Dependency updates")
+    
+    # Extract just the emoji (first field)
+    echo "$selection" | awk '{print $1}'
 }
 
 # Install IBUS Bamboo (Vietnamese input method)
@@ -134,4 +170,5 @@ export -f print_message
 export -f ensure_gum_installed
 export -f check_git_repository
 export -f get_commit_emoji
+export -f select_commit_emoji
 export -f install_ibus_bamboo

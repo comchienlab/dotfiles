@@ -67,7 +67,7 @@ check_git_repository
 
 ### `get_commit_emoji(commit_type)`
 
-Get the appropriate emoji for a given commit type following conventional commits.
+Get the appropriate emoji for a given commit type following conventional commits. This is a simple mapping function for programmatic use.
 
 **Parameters:**
 - `commit_type`: Type of commit (feat, fix, docs, style, refactor, test, chore, perf, build)
@@ -79,6 +79,20 @@ Get the appropriate emoji for a given commit type following conventional commits
 ```bash
 emoji=$(get_commit_emoji "feat")  # Returns ✨
 emoji=$(get_commit_emoji "fix")   # Returns 🐞
+```
+
+### `select_commit_emoji()`
+
+Interactive emoji selection from the full Gitmoji palette using `gum`. Presents a menu with 20+ emoji options and returns the selected emoji.
+
+**Returns:**
+- The selected emoji character
+
+**Example:**
+```bash
+# User selects from interactive menu
+emoji=$(select_commit_emoji)
+# Returns the selected emoji, e.g., ✨
 ```
 
 ### `install_ibus_bamboo()`
