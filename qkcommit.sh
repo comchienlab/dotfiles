@@ -1,5 +1,22 @@
 #!/bin/bash
 
+# Source common library functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/lib/common.sh" ]; then
+    source "$SCRIPT_DIR/lib/common.sh"
+elif [ -f "$(dirname "$SCRIPT_DIR")/lib/common.sh" ]; then
+    source "$(dirname "$SCRIPT_DIR")/lib/common.sh"
+else
+    echo "Error: Cannot find lib/common.sh"
+    exit 1
+fi
+
+# Ensure gum is installed
+ensure_gum_installed
+
+# Check if inside a Git repository
+check_git_repository
+
 # Function to display a live preview of the commit message
 function show_preview() {
     preview_message="$commit_tag"
@@ -9,18 +26,6 @@ function show_preview() {
     preview_message+=": ${commit_icon:+$commit_icon} - ${commit_message:-<commit message>}"
     gum style --foreground 245 "Preview: $preview_message"
 }
-
-# Check if `gum` is installed
-if ! command -v gum &> /dev/null; then
-    echo "gum is required but not installed. Install it and try again."
-    exit 1
-fi
-
-# Check if inside a Git repository
-if ! git rev-parse --is-inside-work-tree &> /dev/null; then
-    gum style --foreground 196 "This is not a Git repository. Please navigate to a valid repository."
-    exit 1
-fi
 
 # Prompt for commit tag (e.g., feature, fix, chore) with preview
 commit_tag=$(gum choose "feature" "fix" "chore" "docs" "style" "refactor" "test" "perf" "build")

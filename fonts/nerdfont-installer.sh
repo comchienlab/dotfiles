@@ -2,15 +2,17 @@
 
 set -e
 
-# ========== 1. Install gum if missing ==========
-if ! command -v gum &>/dev/null; then
-  echo "🔧 Installing gum from Charm.sh APT repo..."
-  sudo mkdir -p /etc/apt/keyrings
-  curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-  echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
-    | sudo tee /etc/apt/sources.list.d/charm.list > /dev/null
-  sudo apt update && sudo apt install gum -y
+# Source common library functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/../lib/common.sh" ]; then
+    source "$SCRIPT_DIR/../lib/common.sh"
+else
+    echo "Error: Cannot find lib/common.sh"
+    exit 1
 fi
+
+# ========== 1. Install gum if missing ==========
+ensure_gum_installed
 
 # ========== 2. Get available font zips from GitHub ==========
 font_list=$(gum spin --spinner dot --title "Fetching Nerd Font list..." -- bash -c '

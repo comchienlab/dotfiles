@@ -1,9 +1,16 @@
 #!/bin/bash
 
-if ! command -v gum &> /dev/null; then
-  echo "🚫 gum chưa được cài. Cài trước nhé!"
-  exit 1
+# Source common library functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/lib/common.sh" ]; then
+    source "$SCRIPT_DIR/lib/common.sh"
+else
+    echo "Error: Cannot find lib/common.sh"
+    exit 1
 fi
+
+# Ensure gum is installed
+ensure_gum_installed
 
 gum style --border double --padding "1 2" --margin "1" --foreground 212 --border-foreground 212 "🚀 TẠO SWAP FILE TUỲ CHỌN"
 

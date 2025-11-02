@@ -1,11 +1,16 @@
 #!/bin/bash
 
-# Kiểm tra nếu gum chưa được cài đặt
-if ! command -v gum &> /dev/null; then
-    echo -e "\e[31m⚠ Gum chưa được cài đặt! Hãy chạy:\e[0m"
-    echo -e "\e[36mbrew install gum\e[0m"
+# Source common library functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/../lib/common.sh" ]; then
+    source "$SCRIPT_DIR/../lib/common.sh"
+else
+    echo "Error: Cannot find lib/common.sh"
     exit 1
 fi
+
+# Ensure gum is installed
+ensure_gum_installed
 
 # Thư mục chứa migration files
 MIGRATION_DIR="sql/oracle"

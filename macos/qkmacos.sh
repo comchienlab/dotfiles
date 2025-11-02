@@ -3,10 +3,17 @@
 # Dependencies: gum
 # Install: brew install gum
 
-if ! command -v gum &> /dev/null; then
-  echo "gum is not installed. Install it with: brew install gum"
-  exit 1
+# Source common library functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/../lib/common.sh" ]; then
+    source "$SCRIPT_DIR/../lib/common.sh"
+else
+    echo "Error: Cannot find lib/common.sh"
+    exit 1
 fi
+
+# Ensure gum is installed
+ensure_gum_installed
 
 # --- Banner ---
 gum style \

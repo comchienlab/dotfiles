@@ -1,35 +1,24 @@
 #!/bin/bash
 
+# Source common library functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/lib/common.sh" ]; then
+    source "$SCRIPT_DIR/lib/common.sh"
+elif [ -f "$(dirname "$SCRIPT_DIR")/lib/common.sh" ]; then
+    source "$(dirname "$SCRIPT_DIR")/lib/common.sh"
+else
+    echo "Error: Cannot find lib/common.sh"
+    exit 1
+fi
+
+# Ensure gum is installed
+ensure_gum_installed
+
 # Display main menu banner
 gum style --border double --margin "1" --padding "1" --border-foreground "#FF5733" "🚀 fgit - Fast Git Workflow cho Developer (zsh)"
 
-# Check if `gum` is installed
-if ! command -v gum &> /dev/null; then
-    echo "❌ gum is required but not installed. Install it and try again."
-    echo "📦 Install with: brew install gum (on macOS) or go install github.com/charmbracelet/gum@latest"
-    exit 1
-fi
-
 # Check if inside a Git repository
-if ! git rev-parse --is-inside-work-tree &> /dev/null; then
-    gum style --foreground 196 "❌ This is not a Git repository. Please navigate to a valid repository."
-    exit 1
-fi
-
-get_emoji() {
-    local emoji
-    case $1 in
-        "feat") emoji="✨" ;;
-        "refactor") emoji="🔄" ;;
-        "fix") emoji="🐞" ;;
-        "docs") emoji="📚" ;;
-        "style") emoji="🎨" ;;
-        "test") emoji="✅" ;;
-        "chore") emoji="🔧" ;;
-        *) emoji="❓" ;;
-    esac
-    echo "$emoji"
-}
+check_git_repository
 
 # Top-level group menu with improved styling
 feature_group=$(gum choose --height 10 --cursor.foreground "#FF0" --selected.foreground "#0FF" \
@@ -236,7 +225,7 @@ case $action in
             gum style --foreground 196 "❌ No commit type selected."
             exit 1
         fi
-        emoji=$(get_emoji "${commit_type#* }")
+        emoji=$(get_commit_emoji "${commit_type#* }")
         gum style --foreground "#3498db" "📍 Enter the zone/scope (e.g., button, auth, api):"
         zone=$(gum input --placeholder "zone/scope")
         if [ -z "$zone" ]; then

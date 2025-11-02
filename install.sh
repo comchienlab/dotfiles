@@ -1,40 +1,16 @@
 #!/bin/bash
 
-# Define colors for output
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# Function to print colored messages
-print_message() {
-    local color=$1
-    local message=$2
-    echo -e "${color}${message}${NC}"
-}
-
-# Check if gum is installed
-if ! command -v gum &> /dev/null; then
-    echo "Gum is required but not installed. Installing..."
-    # Detect OS and install gum
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        echo "Detected macOS, installing via Homebrew..."
-        brew install gum
-    else
-        # Ubuntu/Debian
-        echo "Detected Linux, installing via APT..."
-        sudo mkdir -p /etc/apt/keyrings
-        curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-        echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-        sudo apt update && sudo apt install -y gum
-    fi    
+# Source common library functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/lib/common.sh" ]; then
+    source "$SCRIPT_DIR/lib/common.sh"
+else
+    echo "Error: Cannot find lib/common.sh"
+    exit 1
 fi
+
+# Ensure gum is installed
+ensure_gum_installed
 
 # Create the installation directory
 INSTALL_DIR="$HOME/.local/bin"

@@ -3,14 +3,17 @@
 # === Setup PATH ===
 export PATH="$HOME/.local/bin:$PATH"
 
-# === Ensure gum is installed via official APT repo ===
-if ! command -v gum &> /dev/null; then
-    echo "Installing gum via APT..."
-    sudo mkdir -p /etc/apt/keyrings
-    curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-    sudo apt update && sudo apt install gum -y
+# Source common library functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/../lib/common.sh" ]; then
+    source "$SCRIPT_DIR/../lib/common.sh"
+else
+    echo "Error: Cannot find lib/common.sh"
+    exit 1
 fi
+
+# === Ensure gum is installed via official APT repo ===
+ensure_gum_installed
 
 TRANSFER_TRACK_FILE="/tmp/comchienrclone-transfers.json"
 

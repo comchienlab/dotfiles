@@ -1,35 +1,27 @@
 #!/bin/bash
 
+# Source common library functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/lib/common.sh" ]; then
+    source "$SCRIPT_DIR/lib/common.sh"
+elif [ -f "$(dirname "$SCRIPT_DIR")/lib/common.sh" ]; then
+    source "$(dirname "$SCRIPT_DIR")/lib/common.sh"
+else
+    echo "Error: Cannot find lib/common.sh"
+    exit 1
+fi
+
+# Ensure gum is installed
+ensure_gum_installed
+
 # Display startup banner
 gum style --border double --margin "1" --padding "1" --border-foreground "#FF5733" "🚀 fsetup – Quick setup operations"
 
 # Define default versions
 JAVA_VERSION="17.0.13-amzn" # Amazon Corretto 17.0.13
 MAVEN_VERSION="3.9.9"       # Maven 3.9.9
-NODE_VERSION="18"           # Node.js v18 (via Volta)
-YARN_VERSION="1"            # Yarn v1
 ZSHRC_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/.config/.zshrc"
 STARSHIP_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/.config/starship.toml"
-
-# Check if `gum` is installed, if not install it
-if ! command -v gum &>/dev/null; then
-    echo "Gum is required but not installed. Installing..."
-    # Detect OS and install gum
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        if ! command -v brew &>/dev/null; then
-            gum style --foreground 196 "Homebrew is not installed. Please install it first."
-            exit 1
-        fi
-        brew install gum
-    else
-        # Ubuntu/Debian
-        sudo mkdir -p /etc/apt/keyrings
-        curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-        echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-        sudo apt update && sudo apt install -y gum
-    fi
-fi
 
 # Check if SDKMAN is installed and source it
 if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
@@ -97,14 +89,7 @@ case $choice in
     sudo apt-add-repository contrib non-free -y
 
     # Install ibus-bamboo
-    gum style --foreground 46 "Adding repository for ibus-bamboo..."
-    echo 'deb http://download.opensuse.org/repositories/home:/lamlng/Debian_12/ /' | sudo tee /etc/apt/sources.list.d/home:lamlng.list
-    gum style --foreground 46 "Adding key for ibus-bamboo repository..."
-    curl -fsSL https://download.opensuse.org/repositories/home:lamlng/Debian_12/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_lamlng.gpg >/dev/null
-    gum style --foreground 46 "Updating apt repository..."
-    sudo apt update
-    gum style --foreground 46 "Installing ibus-bamboo..."
-    sudo apt -y install ibus-bamboo
+    install_ibus_bamboo
 
     # Install essential packages
     gum style --foreground 46 "Installing essential packages..."
@@ -248,12 +233,6 @@ EOF
 
     # Function to search, select, and purge packages using dpkg
     purge_package() {
-        # Check if gum is installed
-        if ! command -v gum &>/dev/null; then
-            echo "gum is not installed. Please install gum first."
-            exit 1
-        fi
-
         # Prompt the user to input the search query
         search_query=$(gum input --placeholder "Enter package name to search")
         if [ -z "$search_query" ]; then
@@ -298,15 +277,7 @@ EOF
 
     "⌨️ Install Ibus Bamboo")
         gum style --foreground 46 "Installing Ibus Bamboo..."
-        gum style --foreground 46 "Adding ibus-bamboo repository..."
-        echo 'deb http://download.opensuse.org/repositories/home:/lamlng/Debian_12/ /' | sudo tee /etc/apt/sources.list.d/home:lamlng.list
-        gum style --foreground 46 "Adding ibus-bamboo repository key..."
-        curl -fsSL https://download.opensuse.org/repositories/home:lamlng/Debian_12/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_lamlng.gpg > /dev/null
-        gum style --foreground 46 "Updating apt repositories..."
-        sudo apt update
-        gum style --foreground 46 "Installing ibus-bamboo package..."
-        sudo apt -y install ibus-bamboo
-        gum style --foreground 46 "IBUS-Bamboo installation complete!"
+        install_ibus_bamboo
         ;;
 
 "📚 Install Libraries")
