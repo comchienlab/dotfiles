@@ -5,8 +5,14 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # Source common library functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/../lib/common.sh" ]; then
-    source "$SCRIPT_DIR/../lib/common.sh"
+
+# Try multiple locations for common.sh
+if [ -f "$SCRIPT_DIR/lib/common.sh" ]; then
+    source "$SCRIPT_DIR/lib/common.sh"
+elif [ -f "$(dirname "$SCRIPT_DIR")/lib/common.sh" ]; then
+    source "$(dirname "$SCRIPT_DIR")/lib/common.sh"
+elif [ -f "$HOME/.local/lib/common.sh" ]; then
+    source "$HOME/.local/lib/common.sh"
 else
     echo "Error: Cannot find lib/common.sh"
     exit 1
