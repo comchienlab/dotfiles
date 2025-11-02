@@ -98,7 +98,7 @@ select_commit_emoji() {
     local selection
     selection=$(gum choose \
         "✨ - New feature" \
-        "🐛 - Bug fix" \
+        "🐞 - Bug fix" \
         "📝 - Documentation" \
         "🎨 - Code style improvements" \
         "♻️ - Refactoring" \
@@ -108,7 +108,7 @@ select_commit_emoji() {
         "✅ - Adding tests" \
         "🔧 - Configuration changes" \
         "🔒 - Security fixes" \
-        "⬆️ - Dependency updates" \
+        "⬆️ - Upgrade dependencies" \
         "⬇️ - Downgrade dependencies" \
         "🔥 - Removing code/files" \
         "💄 - UI updates" \
@@ -116,8 +116,7 @@ select_commit_emoji() {
         "🐳 - Docker-related changes" \
         "🔖 - Version tagging" \
         "🎉 - Initial commit" \
-        "➕ - Adding dependencies" \
-        "🔄 - Dependency updates")
+        "➕ - Adding dependencies")
     
     # Extract just the emoji (first field)
     echo "$selection" | awk '{print $1}'

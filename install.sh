@@ -54,11 +54,6 @@ for file in "${QK_FILES[@]}"; do
     
     # Download the file
     if curl -sSL "$REPO_URL/$file" -o "$target_path"; then
-        # Update the script to look for common.sh in ~/.local/lib
-        sed -i.bak 's|source "$SCRIPT_DIR/lib/common.sh"|source "$HOME/.local/lib/common.sh"|g' "$target_path"
-        sed -i.bak 's|source "$(dirname "$SCRIPT_DIR")/lib/common.sh"|source "$HOME/.local/lib/common.sh"|g' "$target_path"
-        rm -f "$target_path.bak"
-        
         # Make it executable
         chmod +x "$target_path"
         print_message "$GREEN" "✓ Successfully installed $command_name"
