@@ -1,0 +1,72 @@
+# Functions delete
+dl() {
+  if [ -z "$1" ]; then
+    echo "🗑️  Usage: dl <file-or-folder>"
+    return 1
+  fi
+
+  target="$1"
+
+  if [ ! -e "$target" ]; then
+    echo "❌ '$target' does not exist."
+    return 1
+  fi
+
+  icon="🗂️"
+  [ -d "$target" ] && icon="📁"
+
+  if gum confirm "🗑️  Are you sure you want to delete $icon '$target'?"; then
+    rm -rf "$target"
+    echo "✅ $icon '$target' has been deleted."
+  else
+    echo "Cancelled ❎"
+  fi
+}
+
+
+# Function to switch to Claude subscription (official)
+use-claude() {
+    cat > ~/.claude/settings.json << 'EOF'
+{
+  "enabledPlugins": {
+    "project-management-suite@claude-code-templates": true,
+    "nextjs-vercel-pro@claude-code-templates": true,
+    "developer-kit@giuseppe.trisciuoglio": true
+  },
+  "alwaysThinkingEnabled": true
+}
+EOF
+    echo "✅ Switched to Claude subscription mode"
+    echo "Run 'claude' in a new terminal to use your Claude.ai subscription"
+}
+
+# Function to switch to GLM coding
+use-glm() {
+    cat > ~/.claude/settings.json << 'EOF'
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+    "ANTHROPIC_AUTH_TOKEN": "<KEY>",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "GLM-4.6",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "GLM-4.6",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "GLM-4.5-Air",
+    "BASH_DEFAULT_TIMEOUT_MS": "3000000",
+    "BASH_MAX_TIMEOUT_MS": "3000000",
+    "MAX_THINKING_TOKENS": "16000",
+    "ENABLE_STREAMING": "true",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "150000",
+    "MAX_MCP_OUTPUT_TOKENS": "50000"
+  },
+  "enabledPlugins": {
+    "project-management-suite@claude-code-templates": true,
+    "nextjs-vercel-pro@claude-code-templates": true,
+    "developer-kit@giuseppe.trisciuoglio": true
+  },
+  "alwaysThinkingEnabled": true
+}
+EOF
+    echo "✅ Switched to GLM coding mode"
+    echo "Run 'claude' in a new terminal to use GLM models"
+}
+
+}
