@@ -5,6 +5,13 @@
 
 set -e
 
+# Determine if we should use $SUDO
+if [[ $EUID -eq 0 ]]; then
+    SUDO=""
+else
+    SUDO="$SUDO"
+fi
+
 # ============ Configuration ============
 # Default values - will be overridden by auto-detection or user input
 YOUR_EMAIL="your-email@example.com"
@@ -165,10 +172,10 @@ configure_firewall() {
     case $OS in
         ubuntu|debian)
             if command -v ufw &> /dev/null; then
-                sudo ufw --force enable
-                sudo ufw allow 80/tcp 2>/dev/null || true
-                sudo ufw allow 443/tcp 2>/dev/null || true
-                sudo ufw allow $YOUR_APP_PORT/tcp 2>/dev/null || true
+                $SUDO ufw --force enable
+                $SUDO ufw allow 80/tcp 2>/dev/null || true
+                $SUDO ufw allow 443/tcp 2>/dev/null || true
+                $SUDO ufw allow $YOUR_APP_PORT/tcp 2>/dev/null || true
                 print_success "UFW configured"
             else
                 print_warning "UFW not found, please ensure ports 80, 443, $YOUR_APP_PORT are open"
@@ -176,10 +183,10 @@ configure_firewall() {
             ;;
         centos|rhel|fedora)
             if command -v firewall-cmd &> /dev/null; then
-                sudo firewall-cmd --permanent --add-port=80/tcp 2>/dev/null || true
-                sudo firewall-cmd --permanent --add-port=443/tcp 2>/dev/null || true
-                sudo firewall-cmd --permanent --add-port=$YOUR_APP_PORT/tcp 2>/dev/null || true
-                sudo firewall-cmd --reload 2>/dev/null || true
+                $SUDO firewall-cmd --permanent --add-port=80/tcp 2>/dev/null || true
+                $SUDO firewall-cmd --permanent --add-port=443/tcp 2>/dev/null || true
+                $SUDO firewall-cmd --permanent --add-port=$YOUR_APP_PORT/tcp 2>/dev/null || true
+                $SUDO firewall-cmd --reload 2>/dev/null || true
                 print_success "Firewalld configured"
             else
                 print_warning "Firewalld not found, please ensure ports are open"
@@ -205,18 +212,18 @@ install_acme_client() {
             ;;
         "certbot")
             if ! command -v certbot &> /dev/null; then
-                sudo $PKG_MANAGER update
+                $SUDO $PKG_MANAGER update
                 case $PKG_MANAGER in
                     apt)
-                        sudo apt install -y snapd
-                        sudo snap install core
-                        sudo snap refresh core
-                        sudo snap install --classic certbot
-                        sudo ln -sf /snap/bin/certbot /usr/bin/certbot
+                        $SUDO apt install -y snapd
+                        $SUDO snap install core
+                        $SUDO snap refresh core
+                        $SUDO snap install --classic certbot
+                        $SUDO ln -sf /snap/bin/certbot /usr/bin/certbot
                         ;;
                     yum)
-                        sudo yum install -y epel-release
-                        sudo yum install -y certbot python3-certbot-nginx
+                        $SUDO yum install -y epel-release
+                        $SUDO yum install -y certbot python3-certbot-nginx
                         ;;
                 esac
                 print_success "certbot installed"
@@ -230,7 +237,7 @@ install_acme_client() {
                 LEGO_VERSION="4.12.3"
                 wget -O /tmp/lego.tar.gz "https://github.com/go-acme/lego/releases/download/v$LEGO_VERSION/lego_v$LEGO_VERSION_linux_amd64.tar.gz"
                 tar -xzf /tmp/lego.tar.gz -C /tmp
-                sudo mv /tmp/lego /usr/local/bin/
+                $SUDO mv /tmp/lego /usr/local/bin/
                 chmod +x /usr/local/bin/lego
                 print_success "lego installed"
             else
@@ -247,13 +254,13 @@ stop_services() {
 
     # Stop services on port 80 or 443
     for port in 80 443; do
-        if sudo lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+        if $SUDO lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
             print_warning "Port $port is in use"
 
             # Try to stop common services
             for service in nginx apache2 httpd; do
                 if systemctl is-active --quiet $service 2>/dev/null; then
-                    sudo systemctl stop $service
+                    $SUDO systemctl stop $service
                     print_success "Stopped $service"
                 fi
             done
@@ -284,7 +291,7 @@ obtain_certificate() {
                 --reloadcmd "systemctl reload nginx 2>/dev/null || true"
             ;;
         "certbot")
-            sudo certbot certonly \
+            $SUDO certbot certonly \
                 --standalone \
                 --non-interactive \
                 --agree-tos \
@@ -343,7 +350,7 @@ setup_renewal() {
     esac
 
     # Create renewal script
-    sudo tee "$RENEWAL_SCRIPT" > /dev/null <<RENEWAL_EOF
+    $SUDO tee "$RENEWAL_SCRIPT" > /dev/null <<RENEWAL_EOF
 #!/bin/bash
 # Auto-renewal script for IP certificates ($ACME_CLIENT)
 
@@ -390,7 +397,7 @@ fi
 echo "============================" >> "\$LOG_FILE"
 RENEWAL_EOF
 
-    sudo chmod +x "$RENEWAL_SCRIPT"
+    $SUDO chmod +x "$RENEWAL_SCRIPT"
     print_success "Renewal script created: $RENEWAL_SCRIPT"
 
     # Add cron job (run every 5 days at random time)
@@ -398,8 +405,8 @@ RENEWAL_EOF
     CRON_HOUR=$((RANDOM % 24))
     CRON_JOB="$CRON_MINUTE $CRON_HOUR */5 * * $RENEWAL_SCRIPT"
 
-    if ! sudo crontab -l 2>/dev/null | grep -q "$RENEWAL_SCRIPT"; then
-        (sudo crontab -l 2>/dev/null; echo "$CRON_JOB") | sudo crontab -
+    if ! $SUDO crontab -l 2>/dev/null | grep -q "$RENEWAL_SCRIPT"; then
+        ($SUDO crontab -l 2>/dev/null; echo "$CRON_JOB") | $SUDO crontab -
         print_success "Cron job added (every 5 days at $CRON_HOUR:$CRON_MINUTE)"
     else
         print_success "Cron job already exists"
@@ -421,7 +428,7 @@ test_renewal() {
             "$HOME/.acme.sh/acme.sh" --cron --home "$HOME/.acme.sh" --force 2>&1 | grep -E "(Renew|expire|valid)"
             ;;
         "certbot")
-            sudo certbot renew --dry-run --certificate-profile shortlived
+            $SUDO certbot renew --dry-run --certificate-profile shortlived
             ;;
         "lego")
             print_info "Run 'lego --email \"$YOUR_EMAIL\" --domains \"$YOUR_IP\" --path \"$CERT_PATH\" renew --days' to test"
@@ -498,7 +505,7 @@ NGINX_EXAMPLE
 
     echo -e "${YELLOW}Management Commands:${NC}"
     echo -e "  View logs: ${GREEN}tail -f /var/log/certbot-ip-renew.log${NC}"
-    echo -e "  Manual renewal: ${GREEN}sudo $RENEWAL_SCRIPT${NC}"
+    echo -e "  Manual renewal: ${GREEN}$SUDO $RENEWAL_SCRIPT${NC}"
     if [[ "$ACME_CLIENT" == "acme.sh" ]]; then
         echo -e "  List certificates: ${GREEN}$HOME/.acme.sh/acme.sh --list${NC}"
     fi
@@ -509,11 +516,11 @@ NGINX_EXAMPLE
 main() {
     print_header "Advanced IP Certificate Setup"
 
-    # Check if running as root for certain operations
+    # Check user permissions
     if [[ $EUID -eq 0 ]]; then
-        print_error "This script should not be run as root directly"
-        print_info "Run as a regular user. The script will use sudo when needed."
-        exit 1
+        print_warning "Running as root user"
+    else
+        print_info "Running as regular user (will use sudo when needed)"
     fi
 
     # Interactive configuration
