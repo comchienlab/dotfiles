@@ -207,6 +207,18 @@ install_acme_client() {
 
     case $ACME_CLIENT in
         "acme.sh")
+            # Install required dependencies
+            print_info "Installing dependencies for acme.sh..."
+            case $PKG_MANAGER in
+                apt)
+                    $SUDO apt update
+                    $SUDO apt install -y socat curl openssl
+                    ;;
+                yum)
+                    $SUDO yum install -y socat curl openssl
+                    ;;
+            esac
+
             if [[ ! -f ~/.acme.sh/acme.sh ]]; then
                 curl https://get.acme.sh | sh -s email="$YOUR_EMAIL"
                 source ~/.acme.sh/acme.sh.env
@@ -214,6 +226,10 @@ install_acme_client() {
             else
                 print_success "acme.sh already installed"
             fi
+
+            # Set Let's Encrypt as CA (supports IP certificates)
+            ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt
+            print_info "Using Let's Encrypt CA"
             CERT_PATH="$HOME/.acme.sh/$YOUR_IP"
             ;;
         "certbot")
@@ -284,10 +300,13 @@ obtain_certificate() {
         "acme.sh")
             source ~/.acme.sh/acme.sh.env
 
+            # Try to obtain certificate
             if [[ "$CHALLENGE_TYPE" == "tls-alpn" ]]; then
-                ~/.acme.sh/acme.sh --issue --standalone --alpn -d "$YOUR_IP"
+                ~/.acme.sh/acme.sh --issue --standalone --alpn -d "$YOUR_IP" --log || \
+                ~/.acme.sh/acme.sh --issue --standalone --alpn -d "$YOUR_IP" --debug
             else
-                ~/.acme.sh/acme.sh --issue --standalone -d "$YOUR_IP"
+                ~/.acme.sh/acme.sh --issue --standalone -d "$YOUR_IP" --log || \
+                ~/.acme.sh/acme.sh --issue --standalone -d "$YOUR_IP" --debug
             fi
 
             # Install certificates
