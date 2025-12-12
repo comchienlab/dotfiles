@@ -3,7 +3,9 @@
 # Supports multiple ACME clients with auto-detection for API servers
 # For Ubuntu/Debian with Let's Encrypt IP certificates (6-day shortlived profile)
 
-set -e
+# Exit on error, but handle failures gracefully
+set -eE
+trap 'echo "Error occurred at line $LINENO"' ERR
 
 # Determine if we should use $SUDO
 if [[ $EUID -eq 0 ]]; then
@@ -72,7 +74,8 @@ configure_interactive() {
 
     # IP detection with confirmation
     if [[ -z "$YOUR_IP" ]]; then
-        YOUR_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s ipinfo.io/ip 2>/dev/null || echo "")
+        print_info "Detecting public IP address..."
+        YOUR_IP=$(curl -s --connect-timeout 5 ifconfig.me 2>/dev/null || curl -s --connect-timeout 5 ipinfo.io/ip 2>/dev/null || curl -s --connect-timeout 5 icanhazip.com 2>/dev/null || echo "")
         if [[ -n "$YOUR_IP" ]]; then
             print_info "Detected public IP: $YOUR_IP"
             read -p "Is this correct? [Y/n]: " confirm
@@ -80,6 +83,7 @@ configure_interactive() {
                 read -p "Enter your IP address: " YOUR_IP
             fi
         else
+            print_warning "Could not auto-detect IP address"
             read -p "Enter your IP address: " YOUR_IP
         fi
     fi
@@ -136,6 +140,7 @@ detect_ports() {
     local port443_open=false
 
     # Test port 80
+    print_info "Testing connectivity to port 80..."
     if timeout 3 bash -c "</dev/tcp/letsencrypt.org/80" 2>/dev/null; then
         port80_open=true
         print_success "Port 80 is accessible"
@@ -144,6 +149,7 @@ detect_ports() {
     fi
 
     # Test port 443
+    print_info "Testing connectivity to port 443..."
     if timeout 3 bash -c "</dev/tcp/letsencrypt.org/443" 2>/dev/null; then
         port443_open=true
         print_success "Port 443 is accessible"
@@ -523,8 +529,35 @@ main() {
         print_info "Running as regular user (will use sudo when needed)"
     fi
 
-    # Interactive configuration
-    configure_interactive
+    # Check if running through pipe (no interactive mode)
+    if [[ ! -t 0 ]]; then
+        print_warning "Running in non-interactive mode"
+        print_info "For interactive mode, run: ./certbot-kit.sh"
+
+        # Set defaults for non-interactive mode
+        if [[ "$YOUR_EMAIL" == "your-email@example.com" ]]; then
+            print_error "Email is required. Please run with -e option"
+            exit 1
+        fi
+
+        YOUR_IP=${YOUR_IP:-$(curl -s --connect-timeout 5 ifconfig.me 2>/dev/null || echo "")}
+        YOUR_APP_PORT=${YOUR_APP_PORT:-8080}
+        ACME_CLIENT=${ACME_CLIENT:-acme.sh}
+
+        if [[ -z "$YOUR_IP" ]]; then
+            print_error "IP address is required. Please run with -i option"
+            exit 1
+        fi
+
+        print_info "Using configuration:"
+        print_info "  Email: $YOUR_EMAIL"
+        print_info "  IP: $YOUR_IP"
+        print_info "  Port: $YOUR_APP_PORT"
+        print_info "  Client: $ACME_CLIENT"
+    else
+        # Interactive configuration
+        configure_interactive
+    fi
 
     # Auto-detection
     detect_os
