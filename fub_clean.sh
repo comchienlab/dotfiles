@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # ================================================
-# Ubuntu Cleanup Assistant PRO v2.5
-# Menu ↑ ↓ Enter Esc • Pure Bash
+# Ubuntu Cleanup Assistant PRO v2.6
+# Menu ↑ ↓ Enter Esc • Pure Bash • Repo version
 # ================================================
 
 set -euo pipefail
 
-VERSION="2.5"
+VERSION="2.6"
 
-# Colors
+# ==================== COLORS ====================
 if command -v tput >/dev/null 2>&1; then
   BOLD="$(tput bold)"
   DIM="$(tput dim)"
@@ -32,13 +32,15 @@ title() {
   print_line
 }
 
+# ==================== ROOT CHECK (link repo mới) ====================
 if [[ $EUID -ne 0 ]]; then
   echo -e "${YELLOW}→ Cần sudo để chạy${RESET}"
-  echo "curl -fsSL https://gist.githubusercontent.com/huaquanghan/09b85b071578bcfd8ee2547ef5318838/raw/qkubclean.sh | sudo bash"
+  echo -e "${CYAN}Dùng lệnh này:${RESET}"
+  echo -e "   curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/fub_clean.sh | sudo bash"
   exit 1
 fi
 
-# ==================== ARROW KEY MENU ====================
+# ==================== ARROW KEY MENU (↑ ↓ Enter Esc) ====================
 select_option() {
   local options=("$@")
   local num_options=${#options[@]}
