@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ================================================
-# Ubuntu Cleanup Assistant PRO v2.7
-# Arrow menu ↑ ↓ Enter Esc • Fix pipe + sudo • Pure Bash
+# Ubuntu Cleanup Assistant PRO v2.8
+# Arrow menu ↑ ↓ (nếu terminal thật) • Fallback số khi pipe
 # ================================================
 
 set -euo pipefail
 
-VERSION="2.7"
+VERSION="2.8"
 
 # ==================== COLORS ====================
 if command -v tput >/dev/null 2>&1; then
@@ -40,56 +40,68 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-# ==================== ROBUST ARROW MENU (fix crash) ====================
-select_option() {
-  local options=("$@")
-  local num_options=${#options[@]}
-  local selected=0
-  local key key2
+# ==================== MENU CHỌN MODE (Arrow hoặc số) ====================
+choose_mode() {
+  echo -e "\n${BOLD}${BLUE}Chọn chế độ dọn dẹp:${RESET}\n"
 
-  # Lưu và set terminal raw mode
-  local old_stty
-  old_stty=$(stty -g)
-  stty raw -echo
-  trap 'stty "$old_stty"' EXIT
+  if [ -t 0 ]; then
+    # === MODE ARROW KEY (chỉ khi có terminal thật) ===
+    local options=(
+      "Light      - Chỉ dọn cơ bản (APT, logs, trash)"
+      "Deep       - Khuyến nghị (nên chọn)"
+      "Aggressive - Dọn mạnh nhất (tất cả)"
+    )
+    local selected=1
+    local key key2 num_options=3
 
-  while true; do
-    # Vẽ menu
-    for i in "${!options[@]}"; do
-      if [ "$i" -eq "$selected" ]; then
-        printf " ${GREEN}❯ %s${RESET}\n" "${options[$i]}"
-      else
-        printf "   %s\n" "${options[$i]}"
-      fi
+    while true; do
+      for i in "${!options[@]}"; do
+        if [ "$i" -eq "$selected" ]; then
+          printf " ${GREEN}❯ %s${RESET}\n" "${options[$i]}"
+        else
+          printf "   %s\n" "${options[$i]}"
+        fi
+      done
+
+      IFS= read -rsn1 key < /dev/tty
+      case "$key" in
+        $'\e')
+          IFS= read -rsn2 -t 0.1 key2 < /dev/tty 2>/dev/null
+          case "$key2" in
+            '[A') selected=$(( (selected - 1 + num_options) % num_options )) ;;
+            '[B') selected=$(( (selected + 1) % num_options )) ;;
+          esac
+          ;;
+        "") break ;;
+        "q"|"Q") echo -e "${YELLOW}Đã hủy.${RESET}"; exit 0 ;;
+      esac
+      printf "\033[%dA\033[J" "$num_options"
     done
-
-    # Đọc phím từ /dev/tty (fix pipe crash)
-    IFS= read -rsn1 key < /dev/tty
-    case "$key" in
-      $'\e')
-        IFS= read -rsn2 -t 0.1 key2 < /dev/tty 2>/dev/null
-        case "$key2" in
-          '[A') selected=$(( (selected - 1 + num_options) % num_options )) ;;
-          '[B') selected=$(( (selected + 1) % num_options )) ;;
-        esac
-        ;;
-      "") 
-        stty "$old_stty" 2>/dev/null
-        trap - EXIT
-        return "$selected" 
-        ;;
-      "q"|"Q") 
-        stty "$old_stty" 2>/dev/null
-        trap - EXIT
-        return 255 
-        ;;
+    case $selected in
+      0) MODE="light" ;;
+      1) MODE="deep" ;;
+      2) MODE="aggressive" ;;
     esac
-
-    # Xóa menu cũ
-    printf "\033[%dA\033[J" "$num_options"
-  done
+  else
+    # === FALLBACK MENU SỐ (khi chạy qua pipe - curl | sudo bash) ===
+    echo "   1) Light"
+    echo "   2) Deep (khuyến nghị)"
+    echo "   3) Aggressive"
+    while true; do
+      read -r -p "${CYAN}❯ Nhập số (1-3) [2]: ${RESET}" ch < /dev/tty
+      ch=${ch:-2}
+      case $ch in
+        1) MODE="light"; break ;;
+        2) MODE="deep"; break ;;
+        3) MODE="aggressive"; break ;;
+        *) echo "${YELLOW}Chỉ được chọn 1, 2 hoặc 3!${RESET}" ;;
+      esac
+    done
+  fi
+  echo -e "${GREEN}→ Chế độ: ${MODE^}${RESET}\n"
 }
 
+# ==================== HÀM HỖ TRỢ ====================
 ask() {
   read -r -p "$(printf "%b" "${CYAN}❯ $1 [y/N]: ${RESET}")" answer < /dev/tty
   [[ "${answer:-N}" =~ ^[Yy]$ ]]
@@ -123,24 +135,6 @@ step() {
   progress
 }
 
-choose_mode() {
-  echo -e "\n${BOLD}${BLUE}Chọn chế độ dọn dẹp:${RESET}\n"
-  local options=(
-    "Light      - Chỉ dọn cơ bản (APT, logs, trash)"
-    "Deep       - Khuyến nghị (nên chọn)"
-    "Aggressive - Dọn mạnh nhất (tất cả)"
-  )
-  select_option "${options[@]}"
-  local choice=$?
-  case $choice in
-    0) MODE="light" ;;
-    1) MODE="deep" ;;
-    2) MODE="aggressive" ;;
-    *) MODE="deep" ;;
-  esac
-  echo -e "${GREEN}→ Chế độ: ${MODE^}${RESET}\n"
-}
-
 # ==================== CLEANUP FUNCTIONS (giữ nguyên) ====================
 cleanup_apt() { step "APT"; run_cmd "Update & Upgrade" sudo apt update && sudo apt upgrade -y; run_cmd "Autoremove" sudo apt autoremove --purge -y; run_cmd "Clean" sudo apt clean; }
 
@@ -169,6 +163,7 @@ summary() {
   print_line
 }
 
+# ==================== MAIN ====================
 main() {
   title
   choose_mode
