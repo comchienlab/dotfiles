@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ================================================
-# Ubuntu Cleanup Assistant PRO v2.6
-# Menu ↑ ↓ Enter Esc • Pure Bash • Repo version
+# Ubuntu Cleanup Assistant PRO v2.7
+# Arrow menu ↑ ↓ Enter Esc • Fix pipe + sudo • Pure Bash
 # ================================================
 
 set -euo pipefail
 
-VERSION="2.6"
+VERSION="2.7"
 
 # ==================== COLORS ====================
 if command -v tput >/dev/null 2>&1; then
@@ -32,7 +32,7 @@ title() {
   print_line
 }
 
-# ==================== ROOT CHECK (link repo mới) ====================
+# ==================== ROOT CHECK ====================
 if [[ $EUID -ne 0 ]]; then
   echo -e "${YELLOW}→ Cần sudo để chạy${RESET}"
   echo -e "${CYAN}Dùng lệnh này:${RESET}"
@@ -40,14 +40,21 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-# ==================== ARROW KEY MENU (↑ ↓ Enter Esc) ====================
+# ==================== ROBUST ARROW MENU (fix crash) ====================
 select_option() {
   local options=("$@")
   local num_options=${#options[@]}
   local selected=0
-  local key
+  local key key2
+
+  # Lưu và set terminal raw mode
+  local old_stty
+  old_stty=$(stty -g)
+  stty raw -echo
+  trap 'stty "$old_stty"' EXIT
 
   while true; do
+    # Vẽ menu
     for i in "${!options[@]}"; do
       if [ "$i" -eq "$selected" ]; then
         printf " ${GREEN}❯ %s${RESET}\n" "${options[$i]}"
@@ -56,18 +63,29 @@ select_option() {
       fi
     done
 
-    IFS= read -rsn1 key 2>/dev/null
+    # Đọc phím từ /dev/tty (fix pipe crash)
+    IFS= read -rsn1 key < /dev/tty
     case "$key" in
       $'\e')
-        IFS= read -rsn2 -t 0.1 key2 2>/dev/null
+        IFS= read -rsn2 -t 0.1 key2 < /dev/tty 2>/dev/null
         case "$key2" in
           '[A') selected=$(( (selected - 1 + num_options) % num_options )) ;;
           '[B') selected=$(( (selected + 1) % num_options )) ;;
         esac
         ;;
-      "") return "$selected" ;;  # Enter
-      "q"|"Q") return 255 ;;
+      "") 
+        stty "$old_stty" 2>/dev/null
+        trap - EXIT
+        return "$selected" 
+        ;;
+      "q"|"Q") 
+        stty "$old_stty" 2>/dev/null
+        trap - EXIT
+        return 255 
+        ;;
     esac
+
+    # Xóa menu cũ
     printf "\033[%dA\033[J" "$num_options"
   done
 }
@@ -123,7 +141,7 @@ choose_mode() {
   echo -e "${GREEN}→ Chế độ: ${MODE^}${RESET}\n"
 }
 
-# ==================== CLEANUP FUNCTIONS ====================
+# ==================== CLEANUP FUNCTIONS (giữ nguyên) ====================
 cleanup_apt() { step "APT"; run_cmd "Update & Upgrade" sudo apt update && sudo apt upgrade -y; run_cmd "Autoremove" sudo apt autoremove --purge -y; run_cmd "Clean" sudo apt clean; }
 
 cleanup_logs() { step "Logs"; run_cmd "Vacuum journal" sudo journalctl --vacuum-time=7d --vacuum-size=300M; }
