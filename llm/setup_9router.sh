@@ -2,8 +2,9 @@
 set -euo pipefail
 
 # ══════════════════════════════════════════════════════════════════
-#  9Router — One-shot VPS Installer
-#  Supports: Ubuntu 22.04 / 24.04 · Debian 11 / 12
+#  9Router — Complete VPS Installer
+#  Ubuntu 22.04 / 24.04 · Debian 11 / 12
+#  Bao gồm: system optimize · security · swap · 9router · caddy
 #  Run: sudo bash install.sh
 # ══════════════════════════════════════════════════════════════════
 
@@ -22,64 +23,80 @@ hr()  { echo -e "${C}───────────────────�
 clear
 echo -e "${C}${W}"
 cat << 'BANNER'
-  ██████╗ ██████╗  ██████╗ ██╗   ██╗████████╗███████╗██████╗
-  ██╔══██╗██╔══██╗██╔═══██╗██║   ██║╚══██╔══╝██╔════╝██╔══██╗
-  ██████╔╝██████╔╝██║   ██║██║   ██║   ██║   █████╗  ██████╔╝
-  ██╔══██╗██╔══██╗██║   ██║██║   ██║   ██║   ██╔══╝  ██╔══██╗
-  ██║  ██║██║  ██║╚██████╔╝╚██████╔╝   ██║   ███████╗██║  ██║
-  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
+  ██████╗  ██████╗  ██████╗ ██╗   ██╗████████╗███████╗██████╗
+  ██╔══██╗██╔═══██╗██╔═══██╗██║   ██║╚══██╔══╝██╔════╝██╔══██╗
+  ██████╔╝██║   ██║██║   ██║██║   ██║   ██║   █████╗  ██████╔╝
+  ██╔══██╗██║   ██║██║   ██║██║   ██║   ██║   ██╔══╝  ██╔══██╗
+  ██║  ██║╚██████╔╝╚██████╔╝╚██████╔╝   ██║   ███████╗██║  ██║
+  ╚═╝  ╚═╝ ╚═════╝  ╚═════╝  ╚═════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
 BANNER
 echo -e "${N}"
-echo -e "  ${W}AI Proxy Router — VPS Installer${N}"
+echo -e "  ${W}AI Proxy Router — Complete VPS Installer${N}"
 hr
 
-# ── Detect VPS IP ──────────────────────────────────────────────
-VPS_IP=$(curl -fsSL --max-time 5 ifconfig.me 2>/dev/null \
-         || hostname -I | awk '{print $1}')
-echo -e "  VPS IP: ${Y}${W}$VPS_IP${N}"
+# ──────────────────────────────────────────────────────────────────
+# Detect VPS info
+# ──────────────────────────────────────────────────────────────────
+VPS_IP=$(curl -fsSL --max-time 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
+TOTAL_RAM=$(awk '/MemTotal/ {printf "%.0f", $2/1024}' /proc/meminfo)
+TOTAL_DISK=$(df -BG / | awk 'NR==2 {print $4}' | tr -d 'G')
+OS_INFO=$(. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME" || echo "Unknown")
+CPU_CORES=$(nproc)
+
+echo -e "  IP       : ${Y}${W}$VPS_IP${N}"
+echo -e "  OS       : $OS_INFO"
+echo -e "  CPU      : ${CPU_CORES} cores"
+echo -e "  RAM      : ${TOTAL_RAM} MB"
+echo -e "  Disk free: ${TOTAL_DISK} GB"
 hr
+
+# Warn low RAM
+if [[ $TOTAL_RAM -lt 900 ]]; then
+  wrn "RAM thấp (${TOTAL_RAM}MB). Script sẽ tạo swap 2GB để build an toàn."
+fi
 
 # ══════════════════════════════════════════════════════════════════
 #  Interactive config
 # ══════════════════════════════════════════════════════════════════
 sec "Cấu hình"
 
-# Domain
-echo -e "\n${W}Domain của bạn (bỏ trống nếu chỉ dùng IP):${N}"
-echo -e "  ${B}Ví dụ: llm.example.com${N}"
+echo -e "\n${W}[1/4] Domain (bỏ trống nếu chỉ dùng IP):${N}"
+echo -e "      ${B}Ví dụ: llm.example.com${N}"
 read -rp "  → Domain: " DOMAIN
-DOMAIN="${DOMAIN// /}"   # strip spaces
+DOMAIN="${DOMAIN// /}"
 
-# Password
-echo -e "\n${W}Mật khẩu đăng nhập:${N}"
-echo -e "  ${B}(Enter để dùng mặc định: ChangeMe123!)${N}"
+echo -e "\n${W}[2/4] Mật khẩu đăng nhập 9Router:${N}"
+echo -e "      ${B}Enter = ChangeMe123!${N}"
 read -rp "  → Password: " INITIAL_PASSWORD
 INITIAL_PASSWORD="${INITIAL_PASSWORD:-ChangeMe123!}"
 
-# Port
-echo -e "\n${W}Port ứng dụng:${N}"
-echo -e "  ${B}(Enter để dùng mặc định: 20128)${N}"
+echo -e "\n${W}[3/4] Port ứng dụng:${N}"
+echo -e "      ${B}Enter = 20128${N}"
 read -rp "  → Port: " APP_PORT
 APP_PORT="${APP_PORT:-20128}"
 
-# ── Summarize & confirm ────────────────────────────────────────
-echo ""
-hr
-echo -e "  ${W}Xác nhận cài đặt:${N}"
-echo -e "  VPS IP    : ${Y}$VPS_IP${N}"
-if [[ -n "$DOMAIN" ]]; then
-  echo -e "  Domain    : ${G}$DOMAIN${N}  (Caddy + HTTPS tự động)"
-else
-  echo -e "  Domain    : ${Y}(không có — truy cập qua IP)${N}"
-fi
-echo -e "  Port      : $APP_PORT"
-echo -e "  Password  : ${Y}$INITIAL_PASSWORD${N}"
-hr
-echo ""
-read -rp "  Tiếp tục? [Y/n] " _confirm
-[[ "${_confirm:-Y}" =~ ^[Nn]$ ]] && { echo "Đã huỷ."; exit 0; }
+echo -e "\n${W}[4/4] Timezone:${N}"
+echo -e "      ${B}Enter = Asia/Ho_Chi_Minh${N}"
+read -rp "  → Timezone: " TZ_SET
+TZ_SET="${TZ_SET:-Asia/Ho_Chi_Minh}"
 
-# ── Derived values ─────────────────────────────────────────────
+# ── Summary ────────────────────────────────────────────────────────
+echo ""
+hr
+echo -e "  ${W}Xác nhận:${N}"
+echo -e "  IP        : ${Y}$VPS_IP${N}"
+[[ -n "$DOMAIN" ]] \
+  && echo -e "  Domain    : ${G}$DOMAIN${N}  ← Caddy + HTTPS tự động" \
+  || echo -e "  Domain    : ${Y}(IP only — http://$VPS_IP:$APP_PORT)${N}"
+echo -e "  Password  : ${Y}$INITIAL_PASSWORD${N}"
+echo -e "  Port      : $APP_PORT"
+echo -e "  Timezone  : $TZ_SET"
+hr
+echo ""
+read -rp "  Bắt đầu cài đặt? [Y/n] " _go
+[[ "${_go:-Y}" =~ ^[Nn]$ ]] && { echo "Đã huỷ."; exit 0; }
+
+# ── Derived ────────────────────────────────────────────────────────
 REPO_URL="https://github.com/decolua/9router.git"
 BUILD_DIR="/opt/9router-build"
 RUNTIME_DIR="/opt/9router"
@@ -87,27 +104,133 @@ DATA_DIR="/var/lib/9router"
 ENV_FILE="/etc/9router.env"
 SERVICE_FILE="/etc/systemd/system/9router.service"
 CADDYFILE="/etc/caddy/Caddyfile"
+SYSCTL_CONF="/etc/sysctl.d/99-9router.conf"
 
 JWT_SECRET=$(openssl rand -hex 32)
 API_KEY_SECRET=$(openssl rand -hex 32)
 MACHINE_ID_SALT=$(openssl rand -hex 16)
 
-if [[ -n "$DOMAIN" ]]; then
-  BASE_URL="https://$DOMAIN"
+[[ -n "$DOMAIN" ]] && BASE_URL="https://$DOMAIN" || BASE_URL="http://$VPS_IP:$APP_PORT"
+
+START_TIME=$SECONDS
+
+# ══════════════════════════════════════════════════════════════════
+#  Phase 0 — System update & optimize
+# ══════════════════════════════════════════════════════════════════
+sec "Phase 0 — System update & optimize"
+
+# Timezone
+timedatectl set-timezone "$TZ_SET" 2>/dev/null && ok "Timezone → $TZ_SET" || wrn "Không set được timezone"
+
+# Avoid interactive prompts from apt
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+
+inf "apt update + upgrade..."
+apt-get update -qq
+apt-get upgrade -y -qq \
+  -o Dpkg::Options::="--force-confdef" \
+  -o Dpkg::Options::="--force-confold"
+ok "System packages updated"
+
+inf "Cài essential tools..."
+apt-get install -y -qq \
+  curl wget git ca-certificates openssl gnupg \
+  htop vim net-tools unzip lsof \
+  ufw fail2ban \
+  build-essential
+ok "Essential tools installed"
+
+# ── Swap ────────────────────────────────────────────────────────────
+SWAP_NEEDED=2048  # MB
+if [[ $(swapon --show | wc -l) -le 1 ]]; then
+  inf "Tạo swap ${SWAP_NEEDED}MB..."
+  SWAPFILE=/swapfile
+  [[ -f "$SWAPFILE" ]] && swapoff "$SWAPFILE" 2>/dev/null || true
+  fallocate -l "${SWAP_NEEDED}M" "$SWAPFILE"
+  chmod 600 "$SWAPFILE"
+  mkswap -q "$SWAPFILE"
+  swapon "$SWAPFILE"
+  grep -q "$SWAPFILE" /etc/fstab \
+    || echo "$SWAPFILE none swap sw 0 0" >> /etc/fstab
+  ok "Swap ${SWAP_NEEDED}MB active"
 else
-  BASE_URL="http://$VPS_IP:$APP_PORT"
+  ok "Swap already configured: $(free -h | awk '/Swap/ {print $2}')"
 fi
 
-# ══════════════════════════════════════════════════════════════════
-#  Phase 1 — System dependencies
-# ══════════════════════════════════════════════════════════════════
-sec "Phase 1 — System dependencies"
+# ── Kernel / sysctl tuning ──────────────────────────────────────────
+inf "Applying sysctl optimizations..."
+cat > "$SYSCTL_CONF" << 'EOF'
+# ── Network ──────────────────────────────────────────────────────
+net.core.somaxconn            = 65535
+net.ipv4.tcp_max_syn_backlog  = 65535
+net.ipv4.tcp_fin_timeout      = 15
+net.ipv4.tcp_keepalive_time   = 300
+net.ipv4.tcp_keepalive_intvl  = 30
+net.ipv4.tcp_keepalive_probes = 5
+net.ipv4.tcp_tw_reuse         = 1
+net.core.netdev_max_backlog   = 65535
+net.core.rmem_max             = 16777216
+net.core.wmem_max             = 16777216
+net.ipv4.tcp_rmem             = 4096 87380 16777216
+net.ipv4.tcp_wmem             = 4096 65536 16777216
+# ── Files ────────────────────────────────────────────────────────
+fs.file-max                   = 1000000
+fs.inotify.max_user_watches   = 524288
+fs.inotify.max_user_instances = 512
+# ── VM / Swap ────────────────────────────────────────────────────
+vm.swappiness                 = 10
+vm.dirty_ratio                = 15
+vm.dirty_background_ratio     = 5
+vm.overcommit_memory          = 1
+EOF
+sysctl -p "$SYSCTL_CONF" &>/dev/null
+ok "sysctl applied"
 
-apt-get update -qq
-apt-get install -y -qq git curl ca-certificates openssl
-ok "Base packages ready"
+# ── ulimits ─────────────────────────────────────────────────────────
+inf "Setting open file limits..."
+grep -q "9router" /etc/security/limits.conf || cat >> /etc/security/limits.conf << 'EOF'
+# 9router
+*         soft  nofile  65535
+*         hard  nofile  65535
+root      soft  nofile  65535
+root      hard  nofile  65535
+EOF
+ok "ulimits set (nofile=65535)"
 
-if ! command -v node &>/dev/null; then
+# ── UFW baseline ────────────────────────────────────────────────────
+inf "Configuring UFW..."
+ufw --force reset &>/dev/null
+ufw default deny incoming  &>/dev/null
+ufw default allow outgoing &>/dev/null
+ufw allow ssh              &>/dev/null
+ufw allow 80/tcp           &>/dev/null
+ufw allow 443/tcp          &>/dev/null
+[[ -z "$DOMAIN" ]] && ufw allow "$APP_PORT/tcp" &>/dev/null || true
+ufw --force enable         &>/dev/null
+ok "UFW enabled (ssh, 80, 443$([ -z "$DOMAIN" ] && echo ", $APP_PORT" || echo ""))"
+
+# ── fail2ban ────────────────────────────────────────────────────────
+systemctl enable fail2ban &>/dev/null
+systemctl restart fail2ban
+ok "fail2ban active"
+
+# ── SSH hardening (non-destructive) ─────────────────────────────────
+SSHD=/etc/ssh/sshd_config
+# Only patch if not already set
+grep -q "^ClientAliveInterval" "$SSHD" \
+  || echo "ClientAliveInterval 120" >> "$SSHD"
+grep -q "^ClientAliveCountMax" "$SSHD" \
+  || echo "ClientAliveCountMax 3"   >> "$SSHD"
+systemctl reload sshd 2>/dev/null || systemctl reload ssh 2>/dev/null || true
+ok "SSH keepalive configured"
+
+# ══════════════════════════════════════════════════════════════════
+#  Phase 1 — Node.js + pnpm
+# ══════════════════════════════════════════════════════════════════
+sec "Phase 1 — Node.js + pnpm"
+
+if ! command -v node &>/dev/null || [[ "$(node -v | cut -d. -f1 | tr -d 'v')" -lt 20 ]]; then
   inf "Cài Node.js 20..."
   curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &>/dev/null
   apt-get install -y -qq nodejs
@@ -125,7 +248,7 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════
-#  Phase 2 — Build
+#  Phase 2 — Build 9Router
 # ══════════════════════════════════════════════════════════════════
 sec "Phase 2 — Build 9Router"
 
@@ -140,7 +263,13 @@ ok "Cloned"
 cd "$BUILD_DIR"
 unset NODE_ENV
 export NEXT_TELEMETRY_DISABLED=1
-export NODE_OPTIONS=--max-old-space-size=768
+
+# Dynamic memory: half of total RAM, min 512, max 1536
+MEM_LIMIT=$(( TOTAL_RAM / 2 ))
+[[ $MEM_LIMIT -lt 512  ]] && MEM_LIMIT=512
+[[ $MEM_LIMIT -gt 1536 ]] && MEM_LIMIT=1536
+export NODE_OPTIONS="--max-old-space-size=${MEM_LIMIT}"
+inf "Node build memory limit: ${MEM_LIMIT}MB"
 
 inf "Installing dependencies..."
 pnpm install --include=optional --silent
@@ -151,19 +280,19 @@ ok "Dependencies ready"
 inf "Building Next.js (2-4 phút)..."
 export NODE_ENV=production
 pnpm run build 2>&1 | tail -3
-ok "Build xong"
+ok "Build complete"
 
 test -f .next/standalone/server.js || die "Build thất bại: server.js không tìm thấy"
 
 # ══════════════════════════════════════════════════════════════════
-#  Phase 3 — Deploy
+#  Phase 3 — Deploy runtime
 # ══════════════════════════════════════════════════════════════════
 sec "Phase 3 — Deploy runtime"
 
 rm -rf "$RUNTIME_DIR"
 mkdir -p "$RUNTIME_DIR/.next"
-cp -a .next/standalone/.   "$RUNTIME_DIR/"
-cp -a .next/static         "$RUNTIME_DIR/.next/"
+cp -a .next/standalone/.  "$RUNTIME_DIR/"
+cp -a .next/static        "$RUNTIME_DIR/.next/"
 [[ -d public ]] && cp -a public "$RUNTIME_DIR/"
 ok "Runtime → $RUNTIME_DIR"
 
@@ -190,6 +319,7 @@ ok "Env → $ENV_FILE (chmod 600)"
 cat > "$SERVICE_FILE" << EOF
 [Unit]
 Description=9router AI proxy
+Documentation=https://github.com/decolua/9router
 After=network.target
 
 [Service]
@@ -201,6 +331,15 @@ Restart=on-failure
 RestartSec=5
 User=root
 
+# Resource limits
+LimitNOFILE=65535
+LimitNPROC=65535
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=9router
+
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -210,8 +349,14 @@ systemctl enable 9router &>/dev/null
 systemctl restart 9router
 ok "Service 9router started"
 
+# Wait a moment and verify
+sleep 2
+systemctl is-active --quiet 9router \
+  && ok "9router running on port $APP_PORT" \
+  || die "9router failed to start. Check: journalctl -u 9router -n 30"
+
 # ══════════════════════════════════════════════════════════════════
-#  Phase 5 — Caddy (chỉ khi có domain)
+#  Phase 5 — Caddy (only if domain provided)
 # ══════════════════════════════════════════════════════════════════
 if [[ -n "$DOMAIN" ]]; then
   sec "Phase 5 — Caddy + HTTPS"
@@ -228,31 +373,37 @@ if [[ -n "$DOMAIN" ]]; then
     apt-get install -y -qq caddy
     ok "Caddy installed"
   else
-    ok "Caddy already installed"
+    ok "Caddy $(caddy version | head -1) already installed"
   fi
 
   mkdir -p /etc/caddy
   cat > "$CADDYFILE" << EOF
 $DOMAIN {
-    reverse_proxy 127.0.0.1:$APP_PORT
+    encode gzip
+    reverse_proxy 127.0.0.1:$APP_PORT {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
 }
 EOF
   ok "Caddyfile → $CADDYFILE"
 
-  # Update base URL in env to use domain
   sed -i "s|^NEXT_PUBLIC_BASE_URL=.*|NEXT_PUBLIC_BASE_URL=https://$DOMAIN|" "$ENV_FILE"
   systemctl restart 9router
 
   systemctl enable caddy &>/dev/null
   systemctl restart caddy
-  ok "Caddy restarted"
+  ok "Caddy started"
 
-  inf "Chờ Caddy xin cert (5s)..."
-  sleep 5
+  inf "Chờ Caddy xin TLS cert (8s)..."
+  sleep 8
   if curl -fsI "https://$DOMAIN" &>/dev/null; then
     ok "HTTPS live: https://$DOMAIN"
   else
-    wrn "DNS chưa propagate tới $VPS_IP — HTTPS sẽ tự lên khi DNS lan truyền xong"
+    wrn "DNS chưa propagate tới $VPS_IP — HTTPS tự lên sau khi DNS lan truyền"
+    wrn "Kiểm tra: curl -I https://$DOMAIN"
   fi
 fi
 
@@ -268,30 +419,42 @@ apt-get autoremove --purge -y -qq
 apt-get clean -qq
 ok "Build artifacts removed"
 
-if command -v ufw &>/dev/null; then
-  ufw allow 80/tcp  &>/dev/null || true
-  ufw allow 443/tcp &>/dev/null || true
-  [[ -z "$DOMAIN" ]] && { ufw allow "$APP_PORT/tcp" &>/dev/null || true; }
-  ok "UFW updated"
-fi
-
 # ══════════════════════════════════════════════════════════════════
 #  Done
 # ══════════════════════════════════════════════════════════════════
+ELAPSED=$(( SECONDS - START_TIME ))
+ELAPSED_FMT=$(printf '%dm%02ds' $((ELAPSED/60)) $((ELAPSED%60)))
+
 echo ""
 hr
 echo -e "${G}${W}"
-echo "   ✅  9Router đã cài xong!"
+echo "   ✅  Cài đặt hoàn tất! (${ELAPSED_FMT})"
 echo -e "${N}"
-echo -e "   URL      : ${C}${W}$BASE_URL${N}"
-echo -e "   Password : ${Y}$INITIAL_PASSWORD${N}"
-echo -e "   Env file : $ENV_FILE"
-echo -e "   Logs     : journalctl -u 9router -f"
-echo ""
-[[ "$INITIAL_PASSWORD" == "ChangeMe123!" ]] && \
-  wrn "Đang dùng mật khẩu mặc định! Đổi ngay:"
-  echo -e "     ${B}nano $ENV_FILE  →  systemctl restart 9router${N}"
-echo ""
+hr
+echo -e "  ${W}9Router${N}"
+echo -e "  URL          : ${C}${W}$BASE_URL${N}"
+echo -e "  Password     : ${Y}$INITIAL_PASSWORD${N}"
+echo -e ""
+echo -e "  ${W}Files${N}"
+echo -e "  Config       : $ENV_FILE"
+echo -e "  Runtime      : $RUNTIME_DIR"
+echo -e "  Data         : $DATA_DIR"
+echo -e ""
+echo -e "  ${W}Commands${N}"
+echo -e "  Logs         : ${B}journalctl -u 9router -f${N}"
+echo -e "  Restart      : ${B}systemctl restart 9router${N}"
+echo -e "  Edit config  : ${B}nano $ENV_FILE${N}"
+[[ -n "$DOMAIN" ]] && \
+echo -e "  Caddy logs   : ${B}journalctl -u caddy -f${N}"
 hr
 echo ""
+
+[[ "$INITIAL_PASSWORD" == "ChangeMe123!" ]] && {
+  echo -e "${Y}${W}  ⚠  Đang dùng mật khẩu mặc định! Đổi ngay:${N}"
+  echo -e "     ${B}nano $ENV_FILE${N}"
+  echo -e "     ${B}systemctl restart 9router${N}"
+  echo ""
+}
+
+echo -e "${W}  Service status:${N}"
 systemctl --no-pager --full status 9router
