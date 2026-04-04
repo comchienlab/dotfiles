@@ -62,22 +62,22 @@ sec "Cấu hình"
 
 echo -e "\n${W}[1/4] Domain (bỏ trống nếu chỉ dùng IP):${N}"
 echo -e "      ${B}Ví dụ: llm.example.com${N}"
-read -rp "  → Domain: " DOMAIN
+read -rp "  → Domain: " DOMAIN </dev/tty
 DOMAIN="${DOMAIN// /}"
 
 echo -e "\n${W}[2/4] Mật khẩu đăng nhập 9Router:${N}"
 echo -e "      ${B}Enter = ChangeMe123!${N}"
-read -rp "  → Password: " INITIAL_PASSWORD
+read -rp "  → Password: " INITIAL_PASSWORD </dev/tty
 INITIAL_PASSWORD="${INITIAL_PASSWORD:-ChangeMe123!}"
 
 echo -e "\n${W}[3/4] Port ứng dụng:${N}"
 echo -e "      ${B}Enter = 20128${N}"
-read -rp "  → Port: " APP_PORT
+read -rp "  → Port: " APP_PORT </dev/tty
 APP_PORT="${APP_PORT:-20128}"
 
 echo -e "\n${W}[4/4] Timezone:${N}"
 echo -e "      ${B}Enter = Asia/Ho_Chi_Minh${N}"
-read -rp "  → Timezone: " TZ_SET
+read -rp "  → Timezone: " TZ_SET </dev/tty
 TZ_SET="${TZ_SET:-Asia/Ho_Chi_Minh}"
 
 # ── Summary ────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ echo -e "  Port      : $APP_PORT"
 echo -e "  Timezone  : $TZ_SET"
 hr
 echo ""
-read -rp "  Bắt đầu cài đặt? [Y/n] " _go
+read -rp "  Bắt đầu cài đặt? [Y/n] " _go </dev/tty
 [[ "${_go:-Y}" =~ ^[Nn]$ ]] && { echo "Đã huỷ."; exit 0; }
 
 # ── Derived ────────────────────────────────────────────────────────
