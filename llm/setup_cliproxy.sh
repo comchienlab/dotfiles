@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+exec < /dev/tty
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -131,9 +133,7 @@ optimize_system() {
   local _total_ram_mb=$(( _total_ram_kb / 1024 ))
   local _swap_size_mb
 
-  if (( _total_ram_mb <= 1024 )); then
-    _swap_size_mb=2048
-  elif (( _total_ram_mb <= 2048 )); then
+  if (( _total_ram_mb <= 2048 )); then
     _swap_size_mb=2048
   else
     _swap_size_mb=1024
@@ -143,49 +143,47 @@ optimize_system() {
   _existing_swap=$(swapon --show=SIZE --noheadings 2>/dev/null | head -1 || echo "")
 
   if [[ -n "$_existing_swap" ]]; then
-    log_info "Swap đã tồn tại: $_existing_swap — bỏ qua tạo swap."
+    log_info "Swap đã tồn tại: $_existing_swap — bỏ qua."
   else
     log_info "Tạo swap ${_swap_size_mb}MB (RAM hiện tại: ${_total_ram_mb}MB)..."
     fallocate -l "${_swap_size_mb}M" /swapfile
     chmod 600 /swapfile
     mkswap /swapfile -q
     swapon /swapfile
-    if ! grep -q '/swapfile' /etc/fstab; then
-      echo '/swapfile none swap sw 0 0' >> /etc/fstab
-    fi
+    grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
     log_info "Swap ${_swap_size_mb}MB đã kích hoạt và persistent."
   fi
 
-  log_info "Cấu hình swappiness = 10 (ưu tiên dùng RAM trước)..."
+  log_info "Cấu hình swappiness = 10..."
   sysctl -w vm.swappiness=10 >/dev/null
   sysctl -w vm.vfs_cache_pressure=50 >/dev/null
-  grep -q 'vm.swappiness' /etc/sysctl.conf || echo 'vm.swappiness=10' >> /etc/sysctl.conf
+  grep -q 'vm.swappiness' /etc/sysctl.conf       || echo 'vm.swappiness=10'          >> /etc/sysctl.conf
   grep -q 'vm.vfs_cache_pressure' /etc/sysctl.conf || echo 'vm.vfs_cache_pressure=50' >> /etc/sysctl.conf
 
   log_info "Tuning network kernel parameters..."
-  cat >> /etc/sysctl.conf << 'SYSCTL'
+  grep -q 'net.core.somaxconn' /etc/sysctl.conf || cat >> /etc/sysctl.conf << 'SYSCTL'
 net.core.somaxconn=65535
 net.ipv4.tcp_max_syn_backlog=65535
 net.ipv4.ip_local_port_range=1024 65535
 net.ipv4.tcp_tw_reuse=1
 net.ipv4.tcp_fin_timeout=15
 net.core.netdev_max_backlog=65535
+fs.file-max=200000
 SYSCTL
   sysctl -p >/dev/null 2>&1 || true
 
   log_info "Tăng giới hạn file descriptor..."
-  cat >> /etc/security/limits.conf << 'LIMITS'
+  grep -q '# cliproxyapi-limits' /etc/security/limits.conf || cat >> /etc/security/limits.conf << 'LIMITS'
+# cliproxyapi-limits
 * soft nofile 65535
 * hard nofile 65535
 root soft nofile 65535
 root hard nofile 65535
 LIMITS
-  echo 'fs.file-max=200000' >> /etc/sysctl.conf
-  sysctl -w fs.file-max=200000 >/dev/null
 
   log_info "Cấu hình fail2ban bảo vệ SSH..."
   systemctl enable fail2ban >/dev/null 2>&1 || true
-  systemctl start fail2ban >/dev/null 2>&1 || true
+  systemctl start  fail2ban >/dev/null 2>&1 || true
 
   log_info "✓ Tối ưu hệ thống hoàn tất."
 }
@@ -403,10 +401,10 @@ configure_firewall() {
   if command -v ufw &>/dev/null; then
     ufw default deny incoming >/dev/null 2>&1 || true
     ufw default allow outgoing >/dev/null 2>&1 || true
-    ufw allow ssh >/dev/null 2>&1 || true
-    ufw allow 80/tcp  >/dev/null 2>&1 || true
-    ufw allow 443/tcp >/dev/null 2>&1 || true
-    ufw allow 443/udp >/dev/null 2>&1 || true
+    ufw allow ssh    >/dev/null 2>&1 || true
+    ufw allow 80/tcp >/dev/null 2>&1 || true
+    ufw allow 443/tcp>/dev/null 2>&1 || true
+    ufw allow 443/udp>/dev/null 2>&1 || true
     ufw --force enable >/dev/null 2>&1 || true
     log_info "UFW: default deny + cho phép SSH, 80, 443."
   else
@@ -428,7 +426,7 @@ print_summary() {
   echo -e "  ${BOLD}Web UI:${NC}        https://${DOMAIN}/management.html"
   echo -e "  ${BOLD}Web UI Pass:${NC}   ${MGMT_PASSWORD}"
   echo ""
-  echo -e "  ${BOLD}RAM:${NC}    $(free -h | grep Mem | awk '{print $2}')"
+  echo -e "  ${BOLD}RAM:${NC}    $(free -h | grep Mem  | awk '{print $2}')"
   echo -e "  ${BOLD}Swap:${NC}   ${_swap_info}"
   echo ""
   echo -e "${BOLD}  Test API:${NC}"
