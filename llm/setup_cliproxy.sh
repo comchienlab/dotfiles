@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ ! -t 0 ]]; then
+# Nếu chạy qua pipe (stdin không phải terminal) VÀ chưa re-exec từ file
+if [[ ! -t 0 && -z "${CLIPROXY_FROM_FILE:-}" ]]; then
   SCRIPT_URL="https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_cliproxy.sh"
-  TMP_SCRIPT="/tmp/setup-cliproxyapi.sh"
-  echo "Phát hiện chạy qua pipe — tự tải script về $TMP_SCRIPT rồi chạy lại..."
+  TMP_SCRIPT="/tmp/setup-cliproxyapi-$$.sh"
+  echo "Phát hiện chạy qua pipe — tải về $TMP_SCRIPT rồi chạy lại với TTY..."
   curl -fsSL "$SCRIPT_URL" -o "$TMP_SCRIPT"
   chmod +x "$TMP_SCRIPT"
+  export CLIPROXY_FROM_FILE=1
   exec bash "$TMP_SCRIPT"
-  exit 0
+fi
+
+# Kết nối stdin về terminal thật để read hoạt động
+if [[ ! -t 0 ]]; then
+  exec < /dev/tty
 fi
 
 RED='\033[0;31m'
