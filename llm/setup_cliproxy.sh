@@ -1,20 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Nếu chạy qua pipe (stdin không phải terminal) VÀ chưa re-exec từ file
-if [[ ! -t 0 && -z "${CLIPROXY_FROM_FILE:-}" ]]; then
-  SCRIPT_URL="https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_cliproxy.sh"
-  TMP_SCRIPT="/tmp/setup-cliproxyapi-$$.sh"
-  echo "Phát hiện chạy qua pipe — tải về $TMP_SCRIPT rồi chạy lại với TTY..."
-  curl -fsSL "$SCRIPT_URL" -o "$TMP_SCRIPT"
-  chmod +x "$TMP_SCRIPT"
-  export CLIPROXY_FROM_FILE=1
-  exec bash "$TMP_SCRIPT"
-fi
-
-# Kết nối stdin về terminal thật để read hoạt động
+# Guard: neu chay qua pipe (bash <(...)) stdin van la tty nen OK
+# Neu ai do chay curl | bash → exit va huong dan
 if [[ ! -t 0 ]]; then
-  exec < /dev/tty
+  exec < /dev/tty 2>/dev/null || {
+    echo "[WARN] Stdin khong phai TTY. Chay bang lenh sau:"
+    echo ""
+    echo "  bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_cliproxy.sh)"
+    echo ""
+    exit 1
+  }
 fi
 
 RED='\033[0;31m'
@@ -30,23 +26,25 @@ SERVICE_NAME="cliproxyapi"
 AUTH_DIR="/opt/cliproxyapi/auth"
 LOG_DIR="/var/log/cliproxyapi"
 PORT=8317
-GO_VERSION="go1.24.3"
+# FIX: go.mod cua CLIProxyAPIPlus yeu cau go 1.26.0 — phai dung 1.26.x tro len
+GO_REQUIRED_MINOR=26
+GO_VERSION="go1.26.0"
 REPO_URL="https://github.com/router-for-me/CLIProxyAPIPlus.git"
 
 log_info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
 log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
-log_step()  { echo -e "\n${CYAN}══════════════════════════════════════════${NC}\n${BOLD} $*${NC}"; }
+log_step()  { echo -e "\n${CYAN}\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550${NC}\n${BOLD} $*${NC}"; }
 
 print_banner() {
   echo -e "${CYAN}"
-  echo "▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄"
-  echo "█▄▄░███░██░██░▄▀▄░███░▄▄█░▄▄█▄░▄█░██░█▀▄▄▀"
-  echo "█▀▄████░██░██░█▄█░███▄▄▀█░▄▄██░██░██░█░▀▀░"
-  echo "█▄▄▄███▄▄█▄▄█▄███▄███▄▄▄█▄▄▄██▄███▄▄▄█░███"
-  echo "▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀"
+  echo "\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584"
+  echo "\u2588\u2584\u2584\u2591\u2588\u2588\u2588\u2591\u2588\u2588\u2591\u2588\u2588\u2591\u2588\u2591\u2580\u2584\u2580\u2591\u2588\u2588\u2588\u2591\u2588\u2584\u2584\u2588\u2591\u2588\u2584\u2584\u2588\u2584\u2591\u2584\u2588\u2591\u2588\u2588\u2591\u2588\u2580\u2584\u2584\u2580"
+  echo "\u2588\u2580\u2584\u2588\u2588\u2588\u2588\u2591\u2588\u2588\u2591\u2588\u2588\u2591\u2588\u2591\u2588\u2584\u2588\u2591\u2588\u2588\u2588\u2584\u2584\u2580\u2588\u2591\u2588\u2591\u2584\u2584\u2588\u2588\u2591\u2584\u2588\u2591\u2588\u2588\u2591\u2588\u2591\u2580\u2580\u2591"
+  echo "\u2588\u2584\u2584\u2584\u2588\u2588\u2588\u2584\u2584\u2588\u2584\u2584\u2588\u2584\u2584\u2588\u2584\u2588\u2588\u2584\u2588\u2588\u2588\u2584\u2584\u2584\u2588\u2591\u2588\u2584\u2584\u2584\u2588\u2588\u2591\u2584\u2588\u2588\u2584\u2584\u2584\u2588\u2591\u2588\u2588\u2588"
+  echo "\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580"
   echo -e "${NC}"
-  echo -e "${BOLD}  CLIProxyAPI PLUS — All-in-One VPS Setup (No Docker)${NC}"
+  echo -e "${BOLD}  CLIProxyAPI PLUS \u2014 All-in-One VPS Setup (No Docker)${NC}"
   echo -e "  Stack: Go binary + Caddy HTTPS + systemd + Web UI"
   echo -e "  Repo : github.com/router-for-me/CLIProxyAPIPlus"
   echo ""
@@ -54,14 +52,14 @@ print_banner() {
 
 check_root() {
   if [[ $EUID -ne 0 ]]; then
-    log_error "Script phải chạy với quyền root. Dùng: sudo bash $0"
+    log_error "Script phai chay voi quyen root. Dung: sudo bash $0"
     exit 1
   fi
 }
 
 detect_os() {
   if [[ ! -f /etc/os-release ]]; then
-    log_error "Không thể detect OS."
+    log_error "Khong the detect OS."
     exit 1
   fi
   source /etc/os-release
@@ -70,70 +68,70 @@ detect_os() {
   case $OS in
     ubuntu|debian) ;;
     *)
-      log_warn "Script tối ưu cho Ubuntu/Debian. OS hiện tại: $OS"
-      read -rp "Tiếp tục? [y/N]: " _c
+      log_warn "Script toi uu cho Ubuntu/Debian. OS hien tai: $OS"
+      read -rp "Tiep tuc? [y/N]: " _c
       [[ "$_c" =~ ^[Yy]$ ]] || exit 1
       ;;
   esac
 }
 
 prompt_config() {
-  log_step "⚙️  Cấu hình"
+  log_step "\u2699\ufe0f  Cau hinh"
 
   while true; do
-    read -rp $'\nDomain của bạn (ví dụ: api.example.com): ' DOMAIN
+    read -rp $'\nDomain cua ban (vi du: api.example.com): ' DOMAIN
     [[ -n "$DOMAIN" ]] && break
-    log_warn "Domain không được để trống."
+    log_warn "Domain khong duoc de trong."
   done
 
   echo ""
-  echo "API keys dùng để client xác thực (Bearer token):"
-  echo "Nhập ít nhất 1 key. Enter trống để kết thúc."
+  echo "API keys dung de client xac thuc (Bearer token):"
+  echo "Nhap it nhat 1 key. Enter trong de ket thuc."
   API_KEYS=()
   local i=1
   while true; do
-    read -rp "  Key $i (Enter để kết thúc): " _key
+    read -rp "  Key $i (Enter de ket thuc): " _key
     [[ -z "$_key" && ${#API_KEYS[@]} -gt 0 ]] && break
-    [[ -z "$_key" ]] && log_warn "Cần ít nhất 1 API key." && continue
+    [[ -z "$_key" ]] && log_warn "Can it nhat 1 API key." && continue
     API_KEYS+=("$_key")
     ((i++))
   done
 
   echo ""
-  echo -e "${BOLD}Management Web UI${NC} — truy cập tại https://$DOMAIN/management.html"
+  echo -e "${BOLD}Management Web UI${NC} \u2014 truy cap tai https://$DOMAIN/management.html"
   while true; do
-    read -rp "  Password đăng nhập Web UI: " MGMT_PASSWORD
+    read -rp "  Password dang nhap Web UI: " MGMT_PASSWORD
     [[ -n "$MGMT_PASSWORD" ]] && break
-    log_warn "Password không được để trống."
+    log_warn "Password khong duoc de trong."
   done
 
-  read -rp $'\nHTTP/SOCKS5 proxy URL (bỏ trống nếu không dùng): ' PROXY_URL
+  read -rp $'\nHTTP/SOCKS5 proxy URL (bo trong neu khong dung): ' PROXY_URL
   PROXY_URL="${PROXY_URL:-}"
 
   echo ""
-  echo -e "${CYAN}─────────────── Tóm tắt cấu hình ────────────────${NC}"
+  echo -e "${CYAN}\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Tom tat cau hinh \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500${NC}"
   echo -e "  Domain      : ${BOLD}https://$DOMAIN${NC}"
-  echo -e "  Port nội bộ : ${BOLD}127.0.0.1:$PORT${NC}"
+  echo -e "  Port noi bo : ${BOLD}127.0.0.1:$PORT${NC}"
   echo -e "  API Keys    : ${BOLD}${#API_KEYS[@]} key(s)${NC}"
   echo -e "  Web UI      : ${BOLD}https://$DOMAIN/management.html${NC}"
   [[ -n "$PROXY_URL" ]] && echo -e "  Proxy URL   : ${BOLD}$PROXY_URL${NC}"
-  echo -e "${CYAN}──────────────────────────────────────────────────${NC}"
+  echo -e "${CYAN}\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500${NC}"
   echo ""
 
-  read -rp "Tiến hành cài đặt? [Y/n]: " _confirm
-  [[ "$_confirm" =~ ^[Nn]$ ]] && echo "Đã hủy." && exit 0
+  read -rp "Tien hanh cai dat? [Y/n]: " _confirm
+  [[ "$_confirm" =~ ^[Nn]$ ]] && echo "Da huy." && exit 0
 }
 
 optimize_system() {
-  log_step "🚀  Tối ưu hệ thống VPS"
+  log_step "\U0001f680  Toi uu he thong VPS"
 
-  log_info "Cập nhật package list..."
+  log_info "Cap nhat package list..."
   apt-get update -qq
 
-  log_info "Upgrade toàn bộ packages..."
+  log_info "Upgrade toan bo packages..."
   DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq
 
-  log_info "Cài thêm tiện ích..."
+  log_info "Cai them tien ich..."
   apt-get install -y -qq \
     htop curl wget git ca-certificates gnupg lsb-release \
     build-essential unzip jq net-tools ufw fail2ban
@@ -149,15 +147,15 @@ optimize_system() {
   _existing_swap=$(swapon --show=SIZE --noheadings 2>/dev/null | head -1 || echo "")
 
   if [[ -n "$_existing_swap" ]]; then
-    log_info "Swap đã tồn tại ($_existing_swap) — bỏ qua."
+    log_info "Swap da ton tai ($_existing_swap) \u2014 bo qua."
   else
-    log_info "Tạo swap ${_swap_size_mb}MB (RAM: ${_total_ram_mb}MB)..."
+    log_info "Tao swap ${_swap_size_mb}MB (RAM: ${_total_ram_mb}MB)..."
     fallocate -l "${_swap_size_mb}M" /swapfile
     chmod 600 /swapfile
     mkswap /swapfile -q
     swapon /swapfile
     grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
-    log_info "Swap ${_swap_size_mb}MB đã kích hoạt."
+    log_info "Swap ${_swap_size_mb}MB da kich hoat."
   fi
 
   sysctl -w vm.swappiness=10 >/dev/null
@@ -187,38 +185,51 @@ LIMITS
   systemctl enable fail2ban >/dev/null 2>&1 || true
   systemctl start  fail2ban >/dev/null 2>&1 || true
 
-  log_info "✓ Tối ưu hệ thống hoàn tất."
+  log_info "\u2713 Toi uu he thong hoan tat."
 }
 
 install_go() {
-  log_step "🔧  Kiểm tra / Cài đặt Go"
+  log_step "\U0001f527  Kiem tra / Cai dat Go"
 
   export PATH=$PATH:/usr/local/go/bin
 
+  # FIX: khong chi check 'command -v go' vi VPS co the co Go cu (1.21, 1.22 tu apt)
+  # go.mod yeu cau >= 1.26 nen phai check version cu the
+  local _need_install=true
   if command -v go &>/dev/null; then
-    log_info "Go đã có sẵn: $(go version | awk '{print $3}') — bỏ qua."
-    return
+    local _cur_major _cur_minor
+    _cur_major=$(go version 2>/dev/null | grep -oP 'go\K[0-9]+' | head -1 || echo 0)
+    _cur_minor=$(go version 2>/dev/null | grep -oP 'go[0-9]+\.\K[0-9]+' | head -1 || echo 0)
+    if [[ "$_cur_major" -gt 1 ]] || [[ "$_cur_major" -eq 1 && "$_cur_minor" -ge $GO_REQUIRED_MINOR ]]; then
+      log_info "Go da du phien ban: $(go version | awk '{print $3}') (>= 1.${GO_REQUIRED_MINOR}) \u2014 bo qua."
+      _need_install=false
+    else
+      log_warn "Go hien tai $(go version | awk '{print $3}') < 1.${GO_REQUIRED_MINOR} (yeu cau boi go.mod). Cap nhat..."
+    fi
   fi
 
-  local _arch="amd64"
-  [[ "$(uname -m)" == "aarch64" ]] && _arch="arm64"
-  local _archive="${GO_VERSION}.linux-${_arch}.tar.gz"
+  if $_need_install; then
+    local _arch="amd64"
+    [[ "$(uname -m)" == "aarch64" ]] && _arch="arm64"
+    local _archive="${GO_VERSION}.linux-${_arch}.tar.gz"
 
-  log_info "Tải ${GO_VERSION} (${_arch})..."
-  wget -q "https://go.dev/dl/${_archive}" -O /tmp/go.tar.gz
-  rm -rf /usr/local/go
-  tar -C /usr/local -xzf /tmp/go.tar.gz
-  rm /tmp/go.tar.gz
+    log_info "Tai ${GO_VERSION} (${_arch})..."
+    wget -q "https://go.dev/dl/${_archive}" -O /tmp/go.tar.gz
+    rm -rf /usr/local/go
+    tar -C /usr/local -xzf /tmp/go.tar.gz
+    rm /tmp/go.tar.gz
 
-  echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
-  log_info "Go đã cài: $(go version)"
+    echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
+    export PATH=$PATH:/usr/local/go/bin
+    log_info "Go da cai: $(go version)"
+  fi
 }
 
 install_caddy() {
-  log_step "🌐  Cài đặt Caddy"
+  log_step "\U0001f310  Cai dat Caddy"
 
   if command -v caddy &>/dev/null; then
-    log_info "Caddy đã có sẵn: $(caddy version) — bỏ qua."
+    log_info "Caddy da co san: $(caddy version) \u2014 bo qua."
     return
   fi
 
@@ -228,21 +239,21 @@ install_caddy() {
     | tee /etc/apt/sources.list.d/caddy-stable.list
   apt-get update -qq
   apt-get install -y -qq caddy
-  log_info "Caddy đã cài: $(caddy version)"
+  log_info "Caddy da cai: $(caddy version)"
 }
 
 build_cliproxyapi() {
-  log_step "🏗️  Build CLIProxyAPI PLUS từ source"
+  log_step "\U0001f3d7\ufe0f  Build CLIProxyAPI PLUS tu source"
 
   if ! id "$SERVICE_USER" &>/dev/null; then
     useradd -r -s /bin/bash -d "$INSTALL_DIR" -m "$SERVICE_USER"
-    log_info "Tạo service user: $SERVICE_USER"
+    log_info "Tao service user: $SERVICE_USER"
   fi
 
   mkdir -p "$INSTALL_DIR" "$AUTH_DIR" "$LOG_DIR"
 
   if [[ -d "$INSTALL_DIR/repo/.git" ]]; then
-    log_info "Repo đã tồn tại, git pull..."
+    log_info "Repo da ton tai, git pull..."
     cd "$INSTALL_DIR/repo" && git pull -q
   else
     log_info "Clone repo CLIProxyAPIPlus..."
@@ -254,14 +265,14 @@ build_cliproxyapi() {
   export GOPATH="/tmp/go-build-cliproxy"
   export GOCACHE="/tmp/go-cache-cliproxy"
 
-  log_info "Build binary (lần đầu mất 1-3 phút)..."
+  log_info "Build binary (lan dau mat 1-3 phut)..."
 
   if go build -o "$INSTALL_DIR/cli-proxy-api" ./cmd/server 2>/dev/null; then
-    log_info "Build thành công (./cmd/server)."
+    log_info "Build thanh cong (./cmd/server)."
   elif go build -o "$INSTALL_DIR/cli-proxy-api" . 2>/dev/null; then
-    log_info "Build thành công (root package)."
+    log_info "Build thanh cong (root package)."
   else
-    log_error "Build thất bại! Debug:"
+    log_error "Build that bai! Debug:"
     log_error "  cd $INSTALL_DIR/repo && go build -v -o $INSTALL_DIR/cli-proxy-api ./cmd/server"
     exit 1
   fi
@@ -272,7 +283,7 @@ build_cliproxyapi() {
 }
 
 create_config() {
-  log_step "📝  Tạo config.yaml"
+  log_step "\U0001f4dd  Tao config.yaml"
 
   local _keys_block=""
   for _k in "${API_KEYS[@]}"; do
@@ -315,7 +326,7 @@ YAML
 }
 
 create_systemd_service() {
-  log_step "⚙️  Tạo systemd service"
+  log_step "\u2699\ufe0f  Tao systemd service"
 
   cat > "/etc/systemd/system/${SERVICE_NAME}.service" << UNIT
 [Unit]
@@ -350,14 +361,14 @@ UNIT
 
   sleep 2
   if systemctl is-active --quiet "$SERVICE_NAME"; then
-    log_info "CLIProxyAPI PLUS service đang chạy ✓"
+    log_info "CLIProxyAPI PLUS service dang chay \u2713"
   else
-    log_warn "Service chưa start. Kiểm tra: journalctl -u $SERVICE_NAME -n 50"
+    log_warn "Service chua start. Kiem tra: journalctl -u $SERVICE_NAME -n 50"
   fi
 }
 
 configure_caddy() {
-  log_step "🔒  Cấu hình Caddy HTTPS cho $DOMAIN"
+  log_step "\U0001f512  Cau hinh Caddy HTTPS cho $DOMAIN"
 
   mkdir -p /var/log/caddy
 
@@ -384,14 +395,14 @@ CADDY
 
   sleep 2
   if systemctl is-active --quiet caddy; then
-    log_info "Caddy đang chạy ✓"
+    log_info "Caddy dang chay \u2713"
   else
-    log_warn "Caddy chưa start. Kiểm tra: journalctl -u caddy -n 50"
+    log_warn "Caddy chua start. Kiem tra: journalctl -u caddy -n 50"
   fi
 }
 
 configure_firewall() {
-  log_step "🔥  Cấu hình firewall"
+  log_step "\U0001f525  Cau hinh firewall"
 
   if command -v ufw &>/dev/null; then
     ufw default deny incoming >/dev/null 2>&1 || true
@@ -401,9 +412,9 @@ configure_firewall() {
     ufw allow 443/tcp >/dev/null 2>&1 || true
     ufw allow 443/udp >/dev/null 2>&1 || true
     ufw --force enable >/dev/null 2>&1 || true
-    log_info "UFW: default deny + cho phép SSH, 80, 443."
+    log_info "UFW: default deny + cho phep SSH, 80, 443."
   else
-    log_warn "UFW không tìm thấy. Tự mở port 80/443 trên firewall cloud provider."
+    log_warn "UFW khong tim thay. Tu mo port 80/443 tren firewall cloud provider."
   fi
 }
 
@@ -411,9 +422,9 @@ print_summary() {
   local _first_key="${API_KEYS[0]}"
 
   echo ""
-  echo -e "${GREEN}╔══════════════════════════════════════════════════════╗${NC}"
-  echo -e "${GREEN}║     ✅  CLIProxyAPI PLUS — Cài đặt hoàn tất!        ║${NC}"
-  echo -e "${GREEN}╚══════════════════════════════════════════════════════╝${NC}"
+  echo -e "${GREEN}\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557${NC}"
+  echo -e "${GREEN}\u2551     \u2705  CLIProxyAPI PLUS \u2014 Cai dat hoan tat!        \u2551${NC}"
+  echo -e "${GREEN}\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d${NC}"
   echo ""
   echo -e "  ${BOLD}API Endpoint:${NC}  https://${DOMAIN}/v1"
   echo -e "  ${BOLD}Web UI:${NC}        https://${DOMAIN}/management.html"
@@ -437,7 +448,7 @@ print_summary() {
   echo -e "${BOLD}  Sau khi login xong, restart service:${NC}"
   echo -e "  systemctl restart ${SERVICE_NAME}"
   echo ""
-  echo -e "${BOLD}  Quản lý service:${NC}"
+  echo -e "${BOLD}  Quan ly service:${NC}"
   echo -e "  systemctl status ${SERVICE_NAME}"
   echo -e "  systemctl restart ${SERVICE_NAME}"
   echo -e "  journalctl -u ${SERVICE_NAME} -f"
@@ -446,8 +457,8 @@ print_summary() {
   echo -e "  ${BOLD}Auth:${NC}     $AUTH_DIR/"
   echo -e "  ${BOLD}Logs:${NC}     $LOG_DIR/"
   echo ""
-  echo -e "${YELLOW}  ⚠️  DNS: A record của ${DOMAIN} phải trỏ về IP VPS trước khi Caddy cấp SSL${NC}"
-  echo -e "${YELLOW}  ⚠️  secret-key sẽ tự bcrypt hash khi service khởi động lần đầu${NC}"
+  echo -e "${YELLOW}  \u26a0\ufe0f  DNS: A record cua ${DOMAIN} phai tro ve IP VPS truoc khi Caddy cap SSL${NC}"
+  echo -e "${YELLOW}  \u26a0\ufe0f  secret-key se tu bcrypt hash khi service khoi dong lan dau${NC}"
   echo ""
 }
 
