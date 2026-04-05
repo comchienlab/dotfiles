@@ -206,32 +206,42 @@ install_go() {
     log_info "Checking Go installation..."
     
     if command -v go &> /dev/null; then
-        GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
-        log_success "Go is already installed: $GO_VERSION"
-        return 0
+        GO_VERSION=$(go version 2>/dev/null | awk '{print $3}' | sed 's/go//')
+        if [[ -n "$GO_VERSION" ]]; then
+            log_success "Go already installed: $GO_VERSION"
+            return 0
+        fi
     fi
 
     log_info "Installing Go >= $MIN_GO_VERSION..."
     
-    # Get latest Go release
-    LATEST_GO=$(curl -s https://api.github.com/repos/golang/go/releases | grep -oP '"tag_name": "\Kgo[0-9.]+" ' | head -1 | tr -d '"go ')
+    # Try to get latest Go release with timeout
+    LATEST_GO=$(timeout 10 curl -fsSL https://api.github.com/repos/golang/go/releases | grep -oP '"tag_name": "\Kgo[0-9.]+" ' | head -1 | tr -d '"go ' || echo "1.24.3")
     
     if [[ -z "$LATEST_GO" ]]; then
-        log_error "Could not determine latest Go version"
+        LATEST_GO="1.24.3"
+        log_warn "Could not fetch latest, using fallback: $LATEST_GO"
     fi
 
     GO_URL="https://go.dev/dl/go${LATEST_GO}.linux-${GO_ARCH}.tar.gz"
     
-    log_info "Downloading Go from: $GO_URL"
-    curl -fsSL "$GO_URL" -o /tmp/go.tar.gz
+    log_info "Downloading Go $LATEST_GO..."
+    if ! timeout 120 curl -fsSL --fail "$GO_URL" -o /tmp/go.tar.gz; then
+        log_error "Failed to download Go from $GO_URL"
+    fi
     
     rm -rf /usr/local/go
-    tar -C /usr/local -xzf /tmp/go.tar.gz
+    tar -C /usr/local -xzf /tmp/go.tar.gz 2>/dev/null || log_error "Failed to extract Go"
     rm -f /tmp/go.tar.gz
     
     # Add to PATH
     export PATH="/usr/local/go/bin:$PATH"
-    echo 'export PATH="/usr/local/go/bin:$PATH"' >> /root/.bashrc
+    grep -q 'export PATH="/usr/local/go/bin' /root/.bashrc || echo 'export PATH="/usr/local/go/bin:$PATH"' >> /root/.bashrc
+    
+    # Verify
+    if ! /usr/local/go/bin/go version &>/dev/null; then
+        log_error "Go installation verification failed"
+    fi
     
     log_success "Go $LATEST_GO installed"
 }
@@ -240,21 +250,27 @@ install_caddy() {
     log_info "Checking Caddy installation..."
     
     if command -v caddy &> /dev/null; then
-        CADDY_VERSION=$(caddy version)
-        log_success "Caddy is already installed: $CADDY_VERSION"
+        CADDY_VERSION=$(caddy version 2>/dev/null || echo "installed")
+        log_success "Caddy already installed: $CADDY_VERSION"
+        systemctl is-enabled caddy >/dev/null 2>&1 || systemctl enable caddy
         return 0
     fi
 
     log_info "Installing Caddy via apt..."
     
-    # Add Caddy apt repo
-    curl -fsSL https://apt.fury.io/caddy/gpg.key | gpg --yes --dearmor -o /usr/share/keyrings/caddy-fury.gpg
-    echo "deb [signed-by=/usr/share/keyrings/caddy-fury.gpg] https://apt.fury.io/caddy/ /" > /etc/apt/sources.list.d/caddy-fury.list
+    if [[ ! -f /usr/share/keyrings/caddy-fury.gpg ]]; then
+        log_info "Adding Caddy repository..."
+        timeout 30 curl -fsSL https://apt.fury.io/caddy/gpg.key 2>/dev/null | gpg --yes --dearmor -o /usr/share/keyrings/caddy-fury.gpg || {
+            log_error "Failed to download Caddy GPG key"
+        }
+        echo "deb [signed-by=/usr/share/keyrings/caddy-fury.gpg] https://apt.fury.io/caddy/ /" > /etc/apt/sources.list.d/caddy-fury.list
+    fi
     
-    apt-get update
-    apt-get install -y caddy
+    apt-get update >/dev/null 2>&1
+    apt-get install -y caddy 2>/dev/null || log_error "Failed to install Caddy"
     
-    log_success "Caddy installed"
+    systemctl enable caddy
+    log_success "Caddy installed and enabled"
 }
 
 install_dependencies() {
@@ -276,13 +292,23 @@ install_dependencies() {
 clone_and_build() {
     log_info "Cloning CLIProxyAPI PLUS repository..."
     
+    # Check if repo is accessible
+    if ! timeout 10 git ls-remote --exit-code "$REPO_URL" >/dev/null 2>&1; then
+        log_error "Repository not accessible: $REPO_URL\nPlease verify the URL or network connectivity."
+    fi
+    
     rm -rf /tmp/cliproxyapi-build
-    git clone --depth 1 "$REPO_URL" /tmp/cliproxyapi-build
+    timeout 300 git clone --depth 1 "$REPO_URL" /tmp/cliproxyapi-build 2>/dev/null || {
+        log_error "Failed to clone repository"
+    }
     
-    cd /tmp/cliproxyapi-build
+    cd /tmp/cliproxyapi-build || log_error "Failed to enter repo directory"
     
-    log_info "Building CLIProxyAPI PLUS..."
-    go build -o "$BIN_NAME" .
+    log_info "Building CLIProxyAPI PLUS (this may take a while)..."
+    
+    if ! timeout 600 go build -o "$BIN_NAME" . 2>/dev/null; then
+        log_error "Build failed. Check logs and Go installation."
+    fi
     
     if [[ ! -f "$BIN_NAME" ]]; then
         log_error "Build failed: binary not found"
@@ -292,9 +318,11 @@ clone_and_build() {
     
     # Move to work directory
     mkdir -p "$WORK_DIR"
-    mv "$BIN_NAME" "$WORK_DIR/"
+    mv "$BIN_NAME" "$WORK_DIR/" || log_error "Failed to move binary"
+    chmod +x "$WORK_DIR/$BIN_NAME"
     
     cd - > /dev/null
+    rm -rf /tmp/cliproxyapi-build
 }
 
 create_service_user() {
@@ -325,8 +353,18 @@ create_directories() {
 create_config_yaml() {
     log_info "Creating configuration file..."
     
+    # Escape special chars in password
+    ESCAPED_PASSWORD=$(printf '%s\n' "$UI_PASSWORD" | sed 's:[\/&]:\\&:g')
+    ESCAPED_PROXY=$(printf '%s\n' "$PROXY_URL" | sed 's:[\/&]:\\&:g')
+    
     # Convert comma-separated keys to YAML array
-    KEYS_YAML=$(echo "$API_KEYS" | tr ',' '\n' | sed 's/^/      - /' | sed 's/^  $//')
+    KEYS_YAML=""
+    IFS=',' read -ra KEYS <<< "$API_KEYS"
+    for key in "${KEYS[@]}"; do
+        KEYS_YAML+="      - \"${key// /}\""$'\n'
+    done
+    
+    mkdir -p "$CONFIG_DIR"
     
     cat > "$CONFIG_DIR/config.yaml" << EOF
 server:
@@ -338,12 +376,11 @@ server:
 auth:
   api_keys:
 $KEYS_YAML
-
 web_ui:
-  password: "$UI_PASSWORD"
+  password: "$ESCAPED_PASSWORD"
 
 proxy:
-  url: "${PROXY_URL}"
+  url: "$ESCAPED_PROXY"
 
 logging:
   level: "info"
@@ -351,7 +388,7 @@ logging:
   output: "$LOG_DIR/cliproxyapi.log"
 EOF
 
-    chown "$SERVICE_USER:$SERVICE_USER" "$CONFIG_DIR/config.yaml"
+    chown "$SERVICE_USER:$SERVICE_USER" "$CONFIG_DIR/config.yaml" 2>/dev/null || true
     chmod 600 "$CONFIG_DIR/config.yaml"
     
     log_success "Config file created: $CONFIG_DIR/config.yaml"
@@ -360,7 +397,12 @@ EOF
 create_systemd_service() {
     log_info "Creating systemd service..."
     
-    cat > "/etc/systemd/system/${SERVICE_NAME}.service" << EOF
+    # Check if port 8080 is available
+    if netstat -tuln 2>/dev/null | grep -q :8080; then
+        log_warn "Port 8080 already in use. Service may fail to start."
+    fi
+    
+    cat > "/etc/systemd/system/${SERVICE_NAME}.service" << 'EOF'
 [Unit]
 Description=CLIProxyAPI PLUS Service
 After=network-online.target
@@ -368,20 +410,19 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=$SERVICE_USER
-Group=$SERVICE_USER
-WorkingDirectory=$WORK_DIR
-ExecStart=$WORK_DIR/$BIN_NAME -config=$CONFIG_DIR/config.yaml
+User=cliproxy
+Group=cliproxy
+WorkingDirectory=/opt/cliproxyapi-plus
+ExecStart=/opt/cliproxyapi-plus/cli-proxy-api-plus -config=/etc/cliproxyapi-plus/config.yaml
 Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=$SERVICE_NAME
+SyslogIdentifier=cliproxyapi-plus
+TimeoutStartSec=60
 
 # Security & resource limits
 PrivateTmp=yes
-ProtectSystem=strict
-ProtectHome=yes
 NoNewPrivileges=true
 LimitNOFILE=65536
 LimitNPROC=4096
@@ -391,7 +432,7 @@ WantedBy=multi-user.target
 EOF
 
     systemctl daemon-reload
-    systemctl enable "$SERVICE_NAME"
+    systemctl enable "$SERVICE_NAME" 2>/dev/null || log_warn "Failed to enable service"
     
     log_success "Systemd service created and enabled"
 }
@@ -474,10 +515,15 @@ LIMITS_EOF
 setup_fail2ban() {
     log_info "Configuring fail2ban..."
     
-    systemctl start fail2ban
-    systemctl enable fail2ban
+    if ! command -v fail2ban-client &> /dev/null; then
+        log_warn "fail2ban not installed, skipping..."
+        return 0
+    fi
     
-    # Create jail for SSH
+    systemctl start fail2ban 2>/dev/null || log_warn "Failed to start fail2ban"
+    systemctl enable fail2ban 2>/dev/null || true
+    
+    mkdir -p /etc/fail2ban
     cat > /etc/fail2ban/jail.local << 'FAIL2BAN_EOF'
 [DEFAULT]
 bantime = 3600
@@ -491,7 +537,7 @@ filter = sshd
 logpath = /var/log/auth.log
 FAIL2BAN_EOF
 
-    systemctl restart fail2ban
+    systemctl restart fail2ban 2>/dev/null || log_warn "Could not restart fail2ban"
     log_success "fail2ban configured"
 }
 
@@ -527,6 +573,14 @@ main() {
     check_os
     detect_arch
     
+    # Check if already deployed
+    if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+        log_warn "Service $SERVICE_NAME is already running!"
+        echo -n "Proceed with redeployment? (yes/no): "
+        read -r REDEPLOY
+        [[ "$REDEPLOY" == "yes" ]] || log_error "Cancelled by user"
+    fi
+    
     # Collect configuration
     collect_inputs
     show_summary
@@ -552,13 +606,15 @@ main() {
     
     # Start services
     log_info "Starting services..."
-    systemctl start "$SERVICE_NAME"
-    sleep 2
+    systemctl restart caddy 2>/dev/null || log_warn "Failed to restart caddy"
+    systemctl start "$SERVICE_NAME" 2>/dev/null || log_warn "Service may need manual start"
     
-    if systemctl is-active --quiet "$SERVICE_NAME"; then
+    sleep 3
+    
+    if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
         log_success "Service started successfully"
     else
-        log_error "Service failed to start. Check logs: journalctl -u $SERVICE_NAME -n 50"
+        log_warn "Service not running yet. Check: journalctl -u $SERVICE_NAME -n 20"
     fi
     
     # Final summary
@@ -575,53 +631,36 @@ main() {
     cat << SUMMARY
 
 ${BLUE}🎯 Service Information:${NC}
-  Service Name          : $SERVICE_NAME
-  Service Status        : $(systemctl is-active $SERVICE_NAME)
-  System User           : $SERVICE_USER
+  Domain                : $DOMAIN
+  Service Status        : $(systemctl is-active $SERVICE_NAME 2>/dev/null || echo "inactive")
   Work Directory        : $WORK_DIR
-  Config File           : $CONFIG_DIR/config.yaml
 
-${BLUE}🌐 Web Access:${NC}
-  Domain                : https://$DOMAIN
+${BLUE}🌐 Access:${NC}
+  API Endpoint          : $API_URL
   Management Web UI     : https://$DOMAIN/admin
-  Username              : admin
   Password              : (as configured)
 
-${BLUE}🔌 API Information:${NC}
-  API Endpoint          : $API_URL
-  API Keys              : $(echo "$API_KEYS" | tr ',' '\n' | wc -l) key(s)
-
-${BLUE}📝 Test API Call:${NC}
-  curl -X GET \\
-    -H "Authorization: Bearer $TEST_KEY" \\
+${BLUE}📝 Test API:${NC}
+  curl -H "Authorization: Bearer $TEST_KEY" \\
     "$API_URL"
 
-${BLUE}🛠️  Service Management:${NC}
-  View logs             : journalctl -u $SERVICE_NAME -f
-  Check status          : systemctl status $SERVICE_NAME
-  Restart service       : systemctl restart $SERVICE_NAME
-  Stop service          : systemctl stop $SERVICE_NAME
-  View caddy logs       : journalctl -u caddy -f
+${BLUE}🛠️  Service Commands:${NC}
+  Logs                  : journalctl -u $SERVICE_NAME -f
+  Status                : systemctl status $SERVICE_NAME
+  Restart               : systemctl restart $SERVICE_NAME
+  Stop                  : systemctl stop $SERVICE_NAME
 
-${BLUE}🚨 Firewall Status:${NC}
-  Check rules           : sudo ufw status
-  View fail2ban         : sudo fail2ban-client status sshd
-
-${BLUE}📖 OAuth Provider Setup (use --no-browser):${NC}
-  (Refer to CLIProxyAPI PLUS documentation for provider-specific flags)
-
-${YELLOW}⚠️  Important Notes:${NC}
-  1. Domain must point to this server's IP for SSL to work
-  2. Certificate auto-renewal is handled by Caddy
-  3. Config file edited? Run: systemctl restart $SERVICE_NAME
-  4. Keep API keys secure - regenerate if compromised
-  5. Monitor disk usage and logs regularly
+${YELLOW}⚠️  Next Steps:${NC}
+  1. Ensure domain DNS → VPS IP
+  2. Wait 30-60s for Let's Encrypt SSL
+  3. Test: curl -k https://$DOMAIN
+  4. Monitor: journalctl -u $SERVICE_NAME -f
 
 SUMMARY
 
     echo ""
     separator
-    log_success "Deployment finished. Service is running!"
+    log_success "Ready!"
 }
 
 # Run main function
