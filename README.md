@@ -133,6 +133,19 @@ bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/ba
 ```
 </details>
 
+<details>
+<summary><code>setup_9router.sh</code> - Install 9Router AI Proxy</summary>
+
+Installs [9Router](https://github.com/decolua/9router), an AI proxy router with support for multiple LLM providers. Includes system optimization, security hardening, swap setup, and optional HTTPS via Caddy.
+
+Supports both **fresh install** and **update** — re-run safely without losing data or secrets.
+
+To install:
+```sh
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_9router.sh)
+```
+</details>
+
 ---
 
 ## ⚙️ Configuration Files
