@@ -142,7 +142,7 @@ Supports both **fresh install** and **update** — re-run safely without losing 
 
 To install:
 ```sh
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_9router.sh)
+curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_9router.sh | sudo bash
 ```
 </details>
 
