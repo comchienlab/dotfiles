@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ══════════════════════════════════════════════════════════════════
-#  9Router — Complete VPS Installer
+#  9Router — Complete VPS Installer / Updater
 #  Ubuntu 22.04 / 24.04 · Debian 11 / 12
 #  Bao gồm: system optimize · security · swap · 9router · caddy
 #  Run: sudo bash install.sh
@@ -19,6 +19,16 @@ sec() { echo -e "\n${C}${W}━━━  $*  ━━━${N}"; }
 hr()  { echo -e "${C}──────────────────────────────────────────${N}"; }
 
 [[ $EUID -ne 0 ]] && die "Chạy với quyền root: sudo bash $0"
+
+# ── Path constants (defined early for detect_install_mode) ──────────
+REPO_URL="https://github.com/decolua/9router.git"
+BUILD_DIR="/opt/9router-build"
+RUNTIME_DIR="/opt/9router"
+DATA_DIR="/var/lib/9router"
+ENV_FILE="/etc/9router.env"
+SERVICE_FILE="/etc/systemd/system/9router.service"
+CADDYFILE="/etc/caddy/Caddyfile"
+SYSCTL_CONF="/etc/sysctl.d/99-9router.conf"
 
 clear
 echo -e "${C}${W}"
@@ -55,30 +65,88 @@ if [[ $TOTAL_RAM -lt 900 ]]; then
   wrn "RAM thấp (${TOTAL_RAM}MB). Script sẽ tạo swap 2GB để build an toàn."
 fi
 
+# ──────────────────────────────────────────────────────────────────
+# Detect install mode
+# ──────────────────────────────────────────────────────────────────
+INSTALL_MODE="install"
+if [[ -f "$ENV_FILE" ]] && [[ -s "$ENV_FILE" ]] \
+   && [[ -f "$RUNTIME_DIR/server.js" ]] \
+   && systemctl list-unit-files 9router.service &>/dev/null; then
+  INSTALL_MODE="update"
+fi
+
 # ══════════════════════════════════════════════════════════════════
 #  Interactive config
 # ══════════════════════════════════════════════════════════════════
 sec "Cấu hình"
 
-echo -e "\n${W}[1/4] Domain (bỏ trống nếu chỉ dùng IP):${N}"
-echo -e "      ${B}Ví dụ: llm.example.com${N}"
-read -rp "  → Domain: " DOMAIN </dev/tty
-DOMAIN="${DOMAIN// /}"
+# ── Helper: source existing env ─────────────────────────────────────
+source_existing_env() {
+  set -a
+  # shellcheck source=/dev/null
+  source "$ENV_FILE"
+  set +a
+  APP_PORT="${PORT:-20128}"
+  TZ_SET=$(timedatectl show -p Timezone --value 2>/dev/null || echo "Asia/Ho_Chi_Minh")
+  if [[ "${NEXT_PUBLIC_BASE_URL:-}" == https://* ]]; then
+    DOMAIN="${NEXT_PUBLIC_BASE_URL#https://}"
+  else
+    DOMAIN=""
+  fi
+  BASE_URL="${NEXT_PUBLIC_BASE_URL:-}"
+}
 
-echo -e "\n${W}[2/4] Mật khẩu đăng nhập 9Router:${N}"
-echo -e "      ${B}Enter = ChangeMe123!${N}"
-read -rp "  → Password: " INITIAL_PASSWORD </dev/tty
-INITIAL_PASSWORD="${INITIAL_PASSWORD:-ChangeMe123!}"
+if [[ "$INSTALL_MODE" == "update" ]]; then
+  echo -e "\n  ${C}${W}Chế độ: Cập nhật${N} (9Router đã được cài trước đó)\n"
+  source_existing_env
 
-echo -e "\n${W}[3/4] Port ứng dụng:${N}"
-echo -e "      ${B}Enter = 20128${N}"
-read -rp "  → Port: " APP_PORT </dev/tty
-APP_PORT="${APP_PORT:-20128}"
+  OLD_COMMIT=$(cat "$RUNTIME_DIR/.install-commit" 2>/dev/null || echo "không rõ")
+  echo -e "  Phiên bản hiện tại : ${Y}$OLD_COMMIT${N}"
+  [[ -n "$DOMAIN" ]] \
+    && echo -e "  Domain             : ${G}$DOMAIN${N}" \
+    || echo -e "  Domain             : ${Y}(IP only — http://$VPS_IP:$APP_PORT)${N}"
+  echo -e "  Port               : $APP_PORT"
+  echo -e "  Timezone           : $TZ_SET"
+  echo ""
 
-echo -e "\n${W}[4/4] Timezone:${N}"
-echo -e "      ${B}Enter = Asia/Ho_Chi_Minh${N}"
-read -rp "  → Timezone: " TZ_SET </dev/tty
-TZ_SET="${TZ_SET:-Asia/Ho_Chi_Minh}"
+  echo -e "${W}[1/1] Đổi mật khẩu đăng nhập (Enter để giữ nguyên):${N}"
+  read -rp "  → Password mới: " _new_pass </dev/tty
+  if [[ -n "$_new_pass" ]]; then
+    INITIAL_PASSWORD="$_new_pass"
+  fi
+  # INITIAL_PASSWORD đã được load từ env file qua source_existing_env nếu không đổi
+
+else
+  echo -e "\n  ${Y}${W}Chế độ: Cài đặt mới${N}\n"
+
+  echo -e "${W}[1/4] Domain (bỏ trống nếu chỉ dùng IP):${N}"
+  echo -e "      ${B}Ví dụ: llm.example.com${N}"
+  read -rp "  → Domain: " DOMAIN </dev/tty
+  DOMAIN="${DOMAIN// /}"
+
+  echo -e "\n${W}[2/4] Mật khẩu đăng nhập 9Router:${N}"
+  echo -e "      ${B}Enter = ChangeMe123!${N}"
+  read -rp "  → Password: " INITIAL_PASSWORD </dev/tty
+  INITIAL_PASSWORD="${INITIAL_PASSWORD:-ChangeMe123!}"
+
+  echo -e "\n${W}[3/4] Port ứng dụng:${N}"
+  echo -e "      ${B}Enter = 20128${N}"
+  read -rp "  → Port: " APP_PORT </dev/tty
+  APP_PORT="${APP_PORT:-20128}"
+
+  echo -e "\n${W}[4/4] Timezone:${N}"
+  echo -e "      ${B}Enter = Asia/Ho_Chi_Minh${N}"
+  read -rp "  → Timezone: " TZ_SET </dev/tty
+  TZ_SET="${TZ_SET:-Asia/Ho_Chi_Minh}"
+
+  # Generate secrets only on fresh install
+  JWT_SECRET=$(openssl rand -hex 32)
+  API_KEY_SECRET=$(openssl rand -hex 32)
+  MACHINE_ID_SALT=$(openssl rand -hex 16)
+fi
+
+# ── Derived values ──────────────────────────────────────────────────
+[[ -n "$DOMAIN" ]] && BASE_URL="https://$DOMAIN" || BASE_URL="http://$VPS_IP:$APP_PORT"
 
 # ── Summary ────────────────────────────────────────────────────────
 echo ""
@@ -91,28 +159,60 @@ echo -e "  IP        : ${Y}$VPS_IP${N}"
 echo -e "  Password  : ${Y}$INITIAL_PASSWORD${N}"
 echo -e "  Port      : $APP_PORT"
 echo -e "  Timezone  : $TZ_SET"
+if [[ "$INSTALL_MODE" == "update" ]]; then
+  echo -e "  Secrets   : ${G}giữ nguyên từ cài đặt trước${N}"
+fi
 hr
 echo ""
-read -rp "  Bắt đầu cài đặt? [Y/n] " _go </dev/tty
+read -rp "  Bắt đầu? [Y/n] " _go </dev/tty
 [[ "${_go:-Y}" =~ ^[Nn]$ ]] && { echo "Đã huỷ."; exit 0; }
 
-# ── Derived ────────────────────────────────────────────────────────
-REPO_URL="https://github.com/decolua/9router.git"
-BUILD_DIR="/opt/9router-build"
-RUNTIME_DIR="/opt/9router"
-DATA_DIR="/var/lib/9router"
-ENV_FILE="/etc/9router.env"
-SERVICE_FILE="/etc/systemd/system/9router.service"
-CADDYFILE="/etc/caddy/Caddyfile"
-SYSCTL_CONF="/etc/sysctl.d/99-9router.conf"
-
-JWT_SECRET=$(openssl rand -hex 32)
-API_KEY_SECRET=$(openssl rand -hex 32)
-MACHINE_ID_SALT=$(openssl rand -hex 16)
-
-[[ -n "$DOMAIN" ]] && BASE_URL="https://$DOMAIN" || BASE_URL="http://$VPS_IP:$APP_PORT"
-
 START_TIME=$SECONDS
+
+# ── Helper functions ────────────────────────────────────────────────
+wait_for_service() {
+  local svc="$1" max="${2:-15}" interval="${3:-2}" attempt=0
+  inf "Chờ $svc khởi động..."
+  while [[ $attempt -lt $max ]]; do
+    systemctl is-active --quiet "$svc" && { ok "$svc running"; return 0; }
+    attempt=$(( attempt + 1 ))
+    sleep "$interval"
+  done
+  die "$svc không start được sau $((max * interval))s. Check: journalctl -u $svc -n 30"
+}
+
+wait_for_https() {
+  local domain="$1" max=12 attempt=0
+  inf "Chờ Caddy xin TLS cert (tối đa 60s)..."
+  while [[ $attempt -lt $max ]]; do
+    curl -fsI "https://$domain" &>/dev/null && { ok "HTTPS live: https://$domain"; return 0; }
+    attempt=$(( attempt + 1 ))
+    sleep 5
+  done
+  wrn "DNS chưa propagate tới $VPS_IP — HTTPS tự lên sau khi DNS lan truyền"
+  wrn "Kiểm tra: curl -I https://$domain"
+}
+
+ensure_ufw_rule() {
+  local rule="$1"
+  ufw status | grep -qE "^${rule}.*ALLOW" 2>/dev/null || ufw allow "$rule" &>/dev/null
+}
+
+write_env_file() {
+  cat > "$ENV_FILE" << EOF
+JWT_SECRET=$JWT_SECRET
+INITIAL_PASSWORD=$INITIAL_PASSWORD
+DATA_DIR=$DATA_DIR
+PORT=$APP_PORT
+HOSTNAME=0.0.0.0
+NODE_ENV=production
+NEXT_PUBLIC_BASE_URL=$BASE_URL
+NEXT_PUBLIC_CLOUD_URL=https://9router.com
+API_KEY_SECRET=$API_KEY_SECRET
+MACHINE_ID_SALT=$MACHINE_ID_SALT
+EOF
+  chmod 600 "$ENV_FILE"
+}
 
 # ══════════════════════════════════════════════════════════════════
 #  Phase 0 — System update & optimize
@@ -136,14 +236,14 @@ ok "System packages updated"
 inf "Cài essential tools..."
 apt-get install -y -qq \
   curl wget git ca-certificates openssl gnupg \
-  htop vim net-tools unzip lsof \
+  htop vim net-tools unzip lsof rsync \
   ufw fail2ban \
   build-essential
 ok "Essential tools installed"
 
 # ── Swap ────────────────────────────────────────────────────────────
 SWAP_NEEDED=2048  # MB
-if [[ $(swapon --show | wc -l) -le 1 ]]; then
+if [[ $(swapon --show --noheadings 2>/dev/null | wc -l) -eq 0 ]]; then
   inf "Tạo swap ${SWAP_NEEDED}MB..."
   SWAPFILE=/swapfile
   [[ -f "$SWAPFILE" ]] && swapoff "$SWAPFILE" 2>/dev/null || true
@@ -189,7 +289,8 @@ ok "sysctl applied"
 
 # ── ulimits ─────────────────────────────────────────────────────────
 inf "Setting open file limits..."
-grep -q "9router" /etc/security/limits.conf || cat >> /etc/security/limits.conf << 'EOF'
+grep -q "^\*.*soft.*nofile.*65535" /etc/security/limits.conf 2>/dev/null \
+  || cat >> /etc/security/limits.conf << 'EOF'
 # 9router
 *         soft  nofile  65535
 *         hard  nofile  65535
@@ -198,17 +299,18 @@ root      hard  nofile  65535
 EOF
 ok "ulimits set (nofile=65535)"
 
-# ── UFW baseline ────────────────────────────────────────────────────
+# ── UFW (idempotent — never reset existing rules) ──────────────────
 inf "Configuring UFW..."
-ufw --force reset &>/dev/null
-ufw default deny incoming  &>/dev/null
-ufw default allow outgoing &>/dev/null
-ufw allow ssh              &>/dev/null
-ufw allow 80/tcp           &>/dev/null
-ufw allow 443/tcp          &>/dev/null
-[[ -z "$DOMAIN" ]] && ufw allow "$APP_PORT/tcp" &>/dev/null || true
-ufw --force enable         &>/dev/null
-ok "UFW enabled (ssh, 80, 443$([ -z "$DOMAIN" ] && echo ", $APP_PORT" || echo ""))"
+ufw status | grep -q "Status: inactive" && {
+  ufw default deny incoming  &>/dev/null
+  ufw default allow outgoing &>/dev/null
+}
+ensure_ufw_rule ssh
+ensure_ufw_rule "80/tcp"
+ensure_ufw_rule "443/tcp"
+[[ -z "$DOMAIN" ]] && ensure_ufw_rule "$APP_PORT/tcp" || true
+ufw status | grep -q "Status: active" || ufw --force enable &>/dev/null
+ok "UFW configured (ssh, 80, 443$([ -z "$DOMAIN" ] && echo ", $APP_PORT" || echo ""))"
 
 # ── fail2ban ────────────────────────────────────────────────────────
 systemctl enable fail2ban &>/dev/null
@@ -217,7 +319,6 @@ ok "fail2ban active"
 
 # ── SSH hardening (non-destructive) ─────────────────────────────────
 SSHD=/etc/ssh/sshd_config
-# Only patch if not already set
 grep -q "^ClientAliveInterval" "$SSHD" \
   || echo "ClientAliveInterval 120" >> "$SSHD"
 grep -q "^ClientAliveCountMax" "$SSHD" \
@@ -230,7 +331,13 @@ ok "SSH keepalive configured"
 # ══════════════════════════════════════════════════════════════════
 sec "Phase 1 — Node.js + pnpm"
 
-if ! command -v node &>/dev/null || [[ "$(node -v | cut -d. -f1 | tr -d 'v')" -lt 20 ]]; then
+NODE_VER_OK=false
+if command -v node &>/dev/null; then
+  NODE_MAJOR=$(node -v 2>/dev/null | sed 's/v\([0-9]*\)\..*/\1/')
+  [[ "$NODE_MAJOR" =~ ^[0-9]+$ ]] && [[ $NODE_MAJOR -ge 20 ]] && NODE_VER_OK=true
+fi
+
+if [[ "$NODE_VER_OK" == "false" ]]; then
   inf "Cài Node.js 20..."
   curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &>/dev/null
   apt-get install -y -qq nodejs
@@ -252,13 +359,21 @@ fi
 # ══════════════════════════════════════════════════════════════════
 sec "Phase 2 — Build 9Router"
 
+if [[ "$INSTALL_MODE" == "update" ]]; then
+  OLD_COMMIT=$(cat "$RUNTIME_DIR/.install-commit" 2>/dev/null || echo "không rõ")
+  inf "Phiên bản hiện tại: $OLD_COMMIT"
+fi
+
 systemctl stop 9router 2>/dev/null && wrn "Stopped existing 9router" || true
 
 rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR" "$DATA_DIR"
+mkdir -p "$BUILD_DIR"
 inf "Cloning repository..."
 git clone --depth=1 "$REPO_URL" "$BUILD_DIR" &>/dev/null
 ok "Cloned"
+
+NEW_COMMIT=$(git -C "$BUILD_DIR" rev-parse --short HEAD 2>/dev/null || echo "?")
+inf "Phiên bản mới: $NEW_COMMIT"
 
 cd "$BUILD_DIR"
 unset NODE_ENV
@@ -277,23 +392,37 @@ pnpm add -D @tailwindcss/postcss --silent
 pnpm add prop-types --silent
 ok "Dependencies ready"
 
+BUILD_LOG="/tmp/9router-build-$$.log"
 inf "Building Next.js (2-4 phút)..."
 export NODE_ENV=production
-pnpm run build 2>&1 | tail -3
+if ! pnpm run build 2>&1 | tee "$BUILD_LOG" | tail -5; then
+  die "Build thất bại. Log đầy đủ: $BUILD_LOG"
+fi
 ok "Build complete"
 
 test -f .next/standalone/server.js || die "Build thất bại: server.js không tìm thấy"
 
 # ══════════════════════════════════════════════════════════════════
-#  Phase 3 — Deploy runtime
+#  Phase 3 — Deploy runtime (in-place, no rm -rf)
 # ══════════════════════════════════════════════════════════════════
 sec "Phase 3 — Deploy runtime"
 
-rm -rf "$RUNTIME_DIR"
 mkdir -p "$RUNTIME_DIR/.next"
-cp -a .next/standalone/.  "$RUNTIME_DIR/"
-cp -a .next/static        "$RUNTIME_DIR/.next/"
-[[ -d public ]] && cp -a public "$RUNTIME_DIR/"
+# Only create data dir on fresh install — never touch it on updates
+[[ "$INSTALL_MODE" == "install" ]] && mkdir -p "$DATA_DIR"
+
+if command -v rsync &>/dev/null; then
+  rsync -a --delete .next/standalone/ "$RUNTIME_DIR/"
+  rsync -a --delete .next/static/     "$RUNTIME_DIR/.next/static/"
+  [[ -d public ]] && rsync -a --delete public/ "$RUNTIME_DIR/public/" || true
+else
+  cp -a .next/standalone/. "$RUNTIME_DIR/"
+  cp -a .next/static        "$RUNTIME_DIR/.next/"
+  [[ -d public ]] && cp -a public "$RUNTIME_DIR/" || true
+fi
+
+# Record installed commit for future update display
+git -C "$BUILD_DIR" rev-parse --short HEAD > "$RUNTIME_DIR/.install-commit" 2>/dev/null || true
 ok "Runtime → $RUNTIME_DIR"
 
 # ══════════════════════════════════════════════════════════════════
@@ -301,19 +430,7 @@ ok "Runtime → $RUNTIME_DIR"
 # ══════════════════════════════════════════════════════════════════
 sec "Phase 4 — Systemd service"
 
-cat > "$ENV_FILE" << EOF
-JWT_SECRET=$JWT_SECRET
-INITIAL_PASSWORD=$INITIAL_PASSWORD
-DATA_DIR=$DATA_DIR
-PORT=$APP_PORT
-HOSTNAME=0.0.0.0
-NODE_ENV=production
-NEXT_PUBLIC_BASE_URL=$BASE_URL
-NEXT_PUBLIC_CLOUD_URL=https://9router.com
-API_KEY_SECRET=$API_KEY_SECRET
-MACHINE_ID_SALT=$MACHINE_ID_SALT
-EOF
-chmod 600 "$ENV_FILE"
+write_env_file
 ok "Env → $ENV_FILE (chmod 600)"
 
 cat > "$SERVICE_FILE" << EOF
@@ -349,11 +466,8 @@ systemctl enable 9router &>/dev/null
 systemctl restart 9router
 ok "Service 9router started"
 
-# Wait a moment and verify
-sleep 2
-systemctl is-active --quiet 9router \
-  && ok "9router running on port $APP_PORT" \
-  || die "9router failed to start. Check: journalctl -u 9router -n 30"
+wait_for_service 9router 15 2
+inf "9router running on port $APP_PORT"
 
 # ══════════════════════════════════════════════════════════════════
 #  Phase 5 — Caddy (only if domain provided)
@@ -377,7 +491,17 @@ if [[ -n "$DOMAIN" ]]; then
   fi
 
   mkdir -p /etc/caddy
-  cat > "$CADDYFILE" << EOF
+
+  # Only rewrite Caddyfile if domain changed or file doesn't exist
+  CADDY_NEEDS_UPDATE=false
+  if [[ ! -f "$CADDYFILE" ]]; then
+    CADDY_NEEDS_UPDATE=true
+  elif ! grep -qE "^${DOMAIN} \{" "$CADDYFILE" 2>/dev/null; then
+    CADDY_NEEDS_UPDATE=true
+  fi
+
+  if [[ "$CADDY_NEEDS_UPDATE" == "true" ]]; then
+    cat > "$CADDYFILE" << EOF
 $DOMAIN {
     encode gzip
     reverse_proxy 127.0.0.1:$APP_PORT {
@@ -388,23 +512,16 @@ $DOMAIN {
     }
 }
 EOF
-  ok "Caddyfile → $CADDYFILE"
-
-  sed -i "s|^NEXT_PUBLIC_BASE_URL=.*|NEXT_PUBLIC_BASE_URL=https://$DOMAIN|" "$ENV_FILE"
-  systemctl restart 9router
+    ok "Caddyfile → $CADDYFILE"
+  else
+    ok "Caddyfile unchanged (domain: $DOMAIN)"
+  fi
 
   systemctl enable caddy &>/dev/null
   systemctl restart caddy
-  ok "Caddy started"
+  wait_for_service caddy 10 2
 
-  inf "Chờ Caddy xin TLS cert (8s)..."
-  sleep 8
-  if curl -fsI "https://$DOMAIN" &>/dev/null; then
-    ok "HTTPS live: https://$DOMAIN"
-  else
-    wrn "DNS chưa propagate tới $VPS_IP — HTTPS tự lên sau khi DNS lan truyền"
-    wrn "Kiểm tra: curl -I https://$DOMAIN"
-  fi
+  wait_for_https "$DOMAIN"
 fi
 
 # ══════════════════════════════════════════════════════════════════
@@ -414,6 +531,7 @@ sec "Phase 6 — Cleanup"
 
 cd /
 rm -rf "$BUILD_DIR"
+[[ -f "$BUILD_LOG" ]] && rm -f "$BUILD_LOG" || true
 pnpm store prune &>/dev/null || true
 apt-get autoremove --purge -y -qq
 apt-get clean -qq
@@ -428,12 +546,20 @@ ELAPSED_FMT=$(printf '%dm%02ds' $((ELAPSED/60)) $((ELAPSED%60)))
 echo ""
 hr
 echo -e "${G}${W}"
-echo "   ✅  Cài đặt hoàn tất! (${ELAPSED_FMT})"
+if [[ "$INSTALL_MODE" == "update" ]]; then
+  echo "   ✅  Cập nhật hoàn tất! (${ELAPSED_FMT})"
+else
+  echo "   ✅  Cài đặt hoàn tất! (${ELAPSED_FMT})"
+fi
 echo -e "${N}"
 hr
 echo -e "  ${W}9Router${N}"
 echo -e "  URL          : ${C}${W}$BASE_URL${N}"
 echo -e "  Password     : ${Y}$INITIAL_PASSWORD${N}"
+if [[ "$INSTALL_MODE" == "update" ]]; then
+  echo -e "  Build cũ     : ${Y}${OLD_COMMIT:-không rõ}${N}"
+  echo -e "  Build mới    : ${G}$NEW_COMMIT${N}"
+fi
 echo -e ""
 echo -e "  ${W}Files${N}"
 echo -e "  Config       : $ENV_FILE"
