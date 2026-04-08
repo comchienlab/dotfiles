@@ -17,6 +17,7 @@ hr()  { echo -e "${C}───────────────────�
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONF_FILE="${HOME}/.goclaw.conf"
+GITHUB_RAW="https://raw.githubusercontent.com/comchienlab/dotfiles/main/goclaw"
 
 # ── Defaults ───────────────────────────────────────────────────────
 VPS_USER="root"
@@ -113,7 +114,15 @@ cmd_setup() {
   hr
 
   local setup_script="${SCRIPT_DIR}/goclaw-setup.sh"
-  [[ -f "$setup_script" ]] || die "Không tìm thấy: ${setup_script}"
+
+  # Fallback: download from GitHub nếu không có file local
+  if [[ ! -f "$setup_script" ]]; then
+    wrn "Không tìm thấy local file, download từ GitHub..."
+    setup_script="$(mktemp /tmp/goclaw-setup-XXXXX.sh)"
+    curl -fsSL "${GITHUB_RAW}/goclaw-setup.sh" -o "$setup_script" \
+      || die "Không download được goclaw-setup.sh từ GitHub"
+    ok "Downloaded goclaw-setup.sh"
+  fi
 
   check_ssh || return 1
 
@@ -137,7 +146,15 @@ cmd_deploy() {
   hr
 
   local deploy_script="${SCRIPT_DIR}/goclaw-deploy.sh"
-  [[ -f "$deploy_script" ]] || die "Không tìm thấy: ${deploy_script}"
+
+  # Fallback: download từ GitHub nếu không có file local
+  if [[ ! -f "$deploy_script" ]]; then
+    wrn "Không tìm thấy local file, download từ GitHub..."
+    deploy_script="$(mktemp /tmp/goclaw-deploy-XXXXX.sh)"
+    curl -fsSL "${GITHUB_RAW}/goclaw-deploy.sh" -o "$deploy_script" \
+      || die "Không download được goclaw-deploy.sh từ GitHub"
+    ok "Downloaded goclaw-deploy.sh"
+  fi
 
   # Pass VPS connection info to deploy script
   local extra_args=()

@@ -150,12 +150,15 @@ Wrapper script với menu tương tác để quản lý toàn bộ vòng đời 
 - Sửa config
 
 ```sh
-bash goclaw/goclaw.sh
-# Hoặc với VPS đã biết:
+# Chạy remote (không cần clone repo):
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/goclaw/goclaw.sh)
+
+# Hoặc nếu đã clone repo:
 bash goclaw/goclaw.sh --host root@1.2.3.4
 ```
 
 Config VPS được lưu vào `~/.goclaw.conf` (tự động, không cần nhập lại mỗi lần).
+Khi chạy remote, script tự download `goclaw-setup.sh` và `goclaw-deploy.sh` từ GitHub khi cần.
 </details>
 
 <details>
@@ -175,11 +178,8 @@ Cài đặt toàn bộ môi trường server:
 - Có domain → Caddy proxy `443 → INTERNAL_PORT` (HTTPS tự động)
 
 ```sh
-# Chạy trực tiếp trên VPS:
-sudo bash goclaw-setup.sh
-
-# Hoặc upload & chạy từ máy local (qua goclaw.sh menu → [1] Setup VPS):
-bash goclaw/goclaw.sh
+# Chạy thẳng trên VPS (không cần clone repo):
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/goclaw/goclaw-setup.sh)
 ```
 
 </details>
@@ -195,11 +195,11 @@ Build binary và Web UI trên máy local, sau đó copy lên VPS:
 - Restart service và verify
 
 ```sh
-# Cách 1: Qua goclaw.sh menu → [2] Deploy
-bash goclaw/goclaw.sh
+# Chạy remote (không cần clone repo):
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/goclaw/goclaw-deploy.sh) \
+  --host root@1.2.3.4 --dir ~/projects/goclaw
 
-# Cách 2: Chạy trực tiếp
-bash goclaw/goclaw-deploy.sh --host root@1.2.3.4 --dir ~/projects/goclaw
+# Hoặc qua goclaw.sh menu → [2] Deploy
 ```
 
 Yêu cầu trên máy local: `go 1.22+`, `rsync`, `ssh`.
