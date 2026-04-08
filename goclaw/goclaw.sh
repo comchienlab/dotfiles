@@ -115,12 +115,17 @@ cmd_setup() {
   echo -e "${W}Setup VPS — copy & chạy goclaw-setup.sh${N}"
   hr
 
+  local _tmp_setup=""
   local setup_script="${SCRIPT_DIR}/goclaw-setup.sh"
 
   # Fallback: download from GitHub nếu không có file local
   if [[ ! -f "$setup_script" ]]; then
     wrn "Không tìm thấy local file, download từ GitHub..."
-    setup_script="$(mktemp /tmp/goclaw-setup-XXXXX.sh)"
+    _tmp_setup="$(mktemp /tmp/goclaw-setup-XXXXX.sh)"
+    setup_script="$_tmp_setup"
+    # Cleanup tmp file khi hàm kết thúc (dù thành công hay lỗi)
+    # shellcheck disable=SC2064
+    trap "rm -f '${_tmp_setup}'" RETURN
     curl -fsSL "${GITHUB_RAW}/goclaw-setup.sh" -o "$setup_script" \
       || die "Không download được goclaw-setup.sh từ GitHub"
     ok "Downloaded goclaw-setup.sh"

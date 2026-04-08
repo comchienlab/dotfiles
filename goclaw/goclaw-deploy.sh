@@ -340,20 +340,48 @@ sec "Step 5 — Restart & verify"
 inf "Khởi động lại service..."
 ssh_cmd "systemctl restart goclaw"
 
-# Wait for service
+# Wait for service (with auto-rollback on failure)
 inf "Chờ service khởi động..."
+SERVICE_OK=false
 for i in $(seq 1 10); do
   if ssh_cmd "systemctl is-active --quiet goclaw" 2>/dev/null; then
-    ok "Service goclaw đang chạy"
+    SERVICE_OK=true
     break
   fi
-  [[ $i -eq 10 ]] && {
-    wrn "Service chưa active sau 20s"
-    ssh_cmd "journalctl -u goclaw -n 20 --no-hostname" || true
-    die "Deploy thất bại. Kiểm tra logs trên VPS: journalctl -u goclaw -f"
-  }
   sleep 2
 done
+
+if [[ "$SERVICE_OK" == "false" ]]; then
+  wrn "Service fail sau 20s — đang rollback về binary cũ..."
+  ssh_cmd "
+    if [[ -f ${VPS_DEST_BIN}.bak ]]; then
+      cp -f ${VPS_DEST_BIN}.bak ${VPS_DEST_BIN}
+      systemctl restart goclaw
+      echo 'Rollback OK'
+    else
+      echo 'Không có backup để rollback'
+    fi
+  " 2>/dev/null || true
+  ssh_cmd "journalctl -u goclaw -n 30 --no-hostname" 2>/dev/null || true
+  die "Deploy thất bại (đã rollback). Kiểm tra logs: journalctl -u goclaw -f"
+fi
+ok "Service goclaw đang chạy"
+
+# HTTP health check (đọc PORT từ /etc/goclaw.env trên VPS)
+inf "Kiểm tra HTTP health check..."
+HEALTH_OK=false
+for i in $(seq 1 5); do
+  if ssh_cmd "
+    _port=\$(grep -E '^PORT=' /etc/goclaw.env 2>/dev/null | cut -d= -f2 | tr -d '\"' || echo 3000)
+    curl -fsSL --max-time 3 \"http://127.0.0.1:\${_port:-3000}/\" -o /dev/null 2>/dev/null
+  " 2>/dev/null; then
+    HEALTH_OK=true
+    break
+  fi
+  sleep 2
+done
+[[ "$HEALTH_OK" == "true" ]] && ok "HTTP health check OK" \
+  || wrn "HTTP health check timeout — app có thể cần thêm thời gian khởi động"
 
 # ── Done ───────────────────────────────────────────────────────────
 ELAPSED=$(( SECONDS - START_TIME ))

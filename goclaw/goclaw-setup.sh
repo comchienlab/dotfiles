@@ -342,8 +342,9 @@ ensure_ufw_rule ssh
 ensure_ufw_rule "80/tcp"
 ensure_ufw_rule "443/tcp"
 [[ -z "$DOMAIN" ]] && ensure_ufw_rule "${EXTERNAL_PORT}/tcp" || true
+[[ "$DB_MODE" == "local" ]] && { ufw deny 5432/tcp &>/dev/null || true; }
 ufw status | grep -q "Status: active" || ufw --force enable &>/dev/null
-ok "UFW configured (ssh, 80, 443$([ -z "$DOMAIN" ] && echo ", ${EXTERNAL_PORT}" || echo ""))"
+ok "UFW configured (ssh, 80, 443$([ -z "$DOMAIN" ] && echo ", ${EXTERNAL_PORT}" || echo "")$([ "$DB_MODE" == "local" ] && echo ", 5432 blocked" || echo ""))"
 
 # ── fail2ban ───────────────────────────────────────────────────────
 systemctl enable fail2ban &>/dev/null
@@ -365,7 +366,7 @@ sec "Phase 2 — Database (${DB_MODE})"
 if [[ "$DB_MODE" == "local" ]]; then
   inf "Checking PostgreSQL ${PG_VERSION}..."
 
-  if ! command -v psql &>/dev/null || ! psql --version 2>/dev/null | grep -q "PostgreSQL ${PG_VERSION}"; do
+  if ! command -v psql &>/dev/null || ! psql --version 2>/dev/null | grep -q "PostgreSQL ${PG_VERSION}"; then
     inf "Cài PostgreSQL ${PG_VERSION} + pgvector..."
     apt-get install -y -qq curl gnupg lsb-release
 
@@ -562,6 +563,17 @@ systemctl enable "$SERVICE_NAME" &>/dev/null
 systemctl restart "$SERVICE_NAME"
 ok "Service ${SERVICE_NAME} started"
 wait_for_service "$SERVICE_NAME" 15 2
+
+# ── Journal log rotation ────────────────────────────────────────────
+mkdir -p /etc/systemd/journald.conf.d
+cat > /etc/systemd/journald.conf.d/goclaw.conf << 'EOF'
+[Journal]
+SystemMaxUse=200M
+SystemKeepFree=500M
+MaxFileSec=1month
+EOF
+systemctl restart systemd-journald 2>/dev/null || true
+ok "Journal log rotation configured (max 200MB)"
 
 # ══════════════════════════════════════════════════════════════════
 #  Phase 8 — Caddy (only if domain provided)

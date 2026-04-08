@@ -205,6 +205,76 @@ bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/go
 Yêu cầu trên máy local: `go 1.22+`, `rsync`, `ssh`.
 </details>
 
+<details>
+<summary>⚙️ Biến môi trường (<code>/etc/goclaw.env</code>)</summary>
+
+| Biến | Mặc định | Mô tả |
+|------|----------|-------|
+| `PORT` | `3000` | Port nội bộ app lắng nghe |
+| `DATABASE_URL` | `postgres://goclaw:***@localhost:5432/goclaw` | PostgreSQL connection string |
+| `JWT_SECRET` | auto-gen | Secret ký JWT tokens |
+| `SESSION_SECRET` | auto-gen | Secret cho session cookies |
+| `STATIC_DIR` | `/opt/goclaw/public` | Thư mục chứa Web UI build |
+| `GOCLAW_ANTHROPIC_API_KEY` | _(trống)_ | Anthropic API key |
+| `GOCLAW_GOOGLE_API_KEY` | _(trống)_ | Google AI API key |
+| `LOG_LEVEL` | `info` | Log level: `debug` / `info` / `warn` / `error` |
+
+Sửa config: `nano /etc/goclaw.env && systemctl restart goclaw`
+
+</details>
+
+<details>
+<summary>🔧 Troubleshooting</summary>
+
+**Service không start:**
+```sh
+journalctl -u goclaw -n 50 --no-pager
+systemctl status goclaw
+```
+
+**Port đang bị chiếm:**
+```sh
+ss -tlnp | grep 3000
+```
+
+**Database lỗi kết nối:**
+```sh
+sudo -u postgres psql -c "\l"
+sudo -u postgres psql -d goclaw -c "SELECT 1"
+```
+
+**Caddy / HTTPS lỗi:**
+```sh
+journalctl -u caddy -n 30 --no-pager
+cat /etc/caddy/Caddyfile
+```
+
+**Rollback thủ công về binary cũ:**
+```sh
+cp /usr/local/bin/goclaw.bak /usr/local/bin/goclaw
+systemctl restart goclaw
+```
+
+</details>
+
+<details>
+<summary>⬆️ Nâng cấp GoClaw</summary>
+
+```sh
+# Qua goclaw.sh menu → [2] Deploy  (build local → rsync lên VPS)
+bash goclaw/goclaw.sh --host root@YOUR_VPS
+
+# Hoặc update binary thẳng trên VPS (không cần source code local):
+ssh root@YOUR_VPS "
+  go install github.com/nextlevelbuilder/goclaw@latest
+  cp \$(go env GOPATH)/bin/goclaw /usr/local/bin/goclaw
+  systemctl restart goclaw
+  systemctl status goclaw --no-pager
+"
+```
+
+</details>
+
 ---
 
 ## ⚙️ Configuration Files
