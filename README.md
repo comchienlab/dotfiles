@@ -135,6 +135,78 @@ bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/ba
 
 ---
 
+## 🤖 GoClaw — AI Agent Gateway
+
+Scripts để triển khai [GoClaw](https://goclaw.sh) — AI Agent Gateway viết bằng Go — trên VPS cấu hình thấp, **không dùng Docker**.
+
+<details>
+<summary><code>goclaw.sh</code> - GoClaw Manager (chạy từ máy local)</summary>
+
+Wrapper script với menu tương tác để quản lý toàn bộ vòng đời GoClaw từ máy local qua SSH:
+- Setup VPS lần đầu
+- Deploy (build local + copy lên VPS)
+- Xem status / logs / restart
+- SSH trực tiếp vào VPS
+- Sửa config
+
+```sh
+# Chạy remote (không cần clone repo):
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/goclaw/goclaw.sh)
+
+# Hoặc nếu đã clone repo:
+bash goclaw/goclaw.sh --host root@1.2.3.4
+```
+
+Config VPS được lưu vào `~/.goclaw.conf` (tự động, không cần nhập lại mỗi lần).
+Khi chạy remote, script tự download `goclaw-setup.sh` và `goclaw-deploy.sh` từ GitHub khi cần.
+</details>
+
+<details>
+<summary><code>goclaw-setup.sh</code> - Cài đặt VPS (chạy trên VPS)</summary>
+
+Cài đặt toàn bộ môi trường server:
+- PostgreSQL 16 + pgvector (local) **hoặc** kết nối External DB qua URL
+- Go 1.22+ và GoClaw binary (`go install`)
+- systemd service với auto-restart
+- UFW firewall
+- Caddy reverse proxy + HTTPS tự động (nếu có domain)
+- Tối ưu hóa VPS: swap 2GB, sysctl, ulimits
+
+**Cấu hình port:**
+- `INTERNAL_PORT` — port app lắng nghe (default: `3000`)
+- `EXTERNAL_PORT` — port public nếu không có domain (default: `8080`)
+- Có domain → Caddy proxy `443 → INTERNAL_PORT` (HTTPS tự động)
+
+```sh
+# Chạy thẳng trên VPS (không cần clone repo):
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/goclaw/goclaw-setup.sh)
+```
+
+</details>
+
+<details>
+<summary><code>goclaw-deploy.sh</code> - Build & Deploy từ máy local</summary>
+
+Build binary và Web UI trên máy local, sau đó copy lên VPS:
+- Cross-compile Go binary cho `linux/amd64` hoặc `arm64`
+- Build Web UI tự động phát hiện package manager (npm/bun/pnpm)
+- Rsync static files lên VPS với `--delete`
+- Backup binary cũ trước khi replace
+- Restart service và verify
+
+```sh
+# Chạy remote (không cần clone repo):
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/goclaw/goclaw-deploy.sh) \
+  --host root@1.2.3.4 --dir ~/projects/goclaw
+
+# Hoặc qua goclaw.sh menu → [2] Deploy
+```
+
+Yêu cầu trên máy local: `go 1.22+`, `rsync`, `ssh`.
+</details>
+
+---
+
 ## ⚙️ Configuration Files
 
 This repository also includes configuration files for various tools to maintain a consistent development environment.
