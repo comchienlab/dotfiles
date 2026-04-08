@@ -17,7 +17,9 @@ hr()  { echo -e "${C}───────────────────�
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONF_FILE="${HOME}/.goclaw.conf"
-GITHUB_RAW="https://raw.githubusercontent.com/comchienlab/dotfiles/main/goclaw"
+GITHUB_REPO="comchienlab/dotfiles"
+GITHUB_BRANCH="${GOCLAW_BRANCH:-main}"
+GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/goclaw"
 
 # ── Defaults ───────────────────────────────────────────────────────
 VPS_USER="root"
