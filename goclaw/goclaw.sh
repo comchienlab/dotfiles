@@ -152,12 +152,17 @@ cmd_deploy() {
   echo -e "${W}Deploy — Build local + copy lên VPS${N}"
   hr
 
+  local _tmp_deploy=""
   local deploy_script="${SCRIPT_DIR}/goclaw-deploy.sh"
 
   # Fallback: download từ GitHub nếu không có file local
   if [[ ! -f "$deploy_script" ]]; then
     wrn "Không tìm thấy local file, download từ GitHub..."
-    deploy_script="$(mktemp /tmp/goclaw-deploy-XXXXX.sh)"
+    _tmp_deploy="$(mktemp /tmp/goclaw-deploy-XXXXX.sh)"
+    deploy_script="$_tmp_deploy"
+    # Cleanup tmp file khi hàm kết thúc (dù thành công hay lỗi)
+    # shellcheck disable=SC2064
+    trap "rm -f '${_tmp_deploy}'" RETURN
     curl -fsSL "${GITHUB_RAW}/goclaw-deploy.sh" -o "$deploy_script" \
       || die "Không download được goclaw-deploy.sh từ GitHub"
     ok "Downloaded goclaw-deploy.sh"

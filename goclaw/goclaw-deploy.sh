@@ -29,6 +29,9 @@ VPS_SSH_KEY=""
 VPS_DEST_BIN="/usr/local/bin/goclaw"
 VPS_DEST_STATIC="/opt/goclaw/public"
 GOCLAW_REPO_DIR=""
+GOCLAW_REPO_URL=""    # nếu có → tự clone/pull trước khi build
+GOCLAW_BRANCH=""      # branch/tag để checkout (dùng với --repo hoặc --dir có .git)
+_TEMP_CLONE=""        # path temp clone → cleanup khi script kết thúc
 TARGET_ARCH="amd64"   # amd64 | arm64
 
 # ── Load saved config ──────────────────────────────────────────────
@@ -49,6 +52,8 @@ VPS_SSH_KEY="${VPS_SSH_KEY}"
 VPS_DEST_BIN="${VPS_DEST_BIN}"
 VPS_DEST_STATIC="${VPS_DEST_STATIC}"
 GOCLAW_REPO_DIR="${GOCLAW_REPO_DIR}"
+GOCLAW_REPO_URL="${GOCLAW_REPO_URL}"
+GOCLAW_BRANCH="${GOCLAW_BRANCH}"
 TARGET_ARCH="${TARGET_ARCH}"
 EOF
   chmod 600 "$CONF_FILE"
@@ -76,6 +81,8 @@ parse_args() {
       --user)    VPS_USER="$2"; shift 2 ;;
       --key)     VPS_SSH_KEY="$2"; shift 2 ;;
       --dir)     GOCLAW_REPO_DIR="$2"; shift 2 ;;
+      --repo)    GOCLAW_REPO_URL="$2"; shift 2 ;;
+      --branch)  GOCLAW_BRANCH="$2"; shift 2 ;;
       --arch)    TARGET_ARCH="$2"; shift 2 ;;
       *) wrn "Unknown arg: $1"; shift ;;
     esac
@@ -110,13 +117,34 @@ collect_inputs() {
     VPS_SSH_KEY="$_k"
   fi
 
-  # GoClaw repo dir
-  if [[ -z "$GOCLAW_REPO_DIR" ]]; then
-    echo -e "\n${W}Đường dẫn GoClaw source trên máy local:${N}"
-    echo -e "  ${B}Ví dụ: ~/projects/goclaw${N}"
-    read -rp "  → Repo dir: " GOCLAW_REPO_DIR
-    GOCLAW_REPO_DIR="${GOCLAW_REPO_DIR/#\~/$HOME}"
-    [[ -d "$GOCLAW_REPO_DIR" ]] || die "Directory không tồn tại: ${GOCLAW_REPO_DIR}"
+  # GoClaw source — local dir hoặc git URL
+  if [[ -z "$GOCLAW_REPO_DIR" ]] && [[ -z "$GOCLAW_REPO_URL" ]]; then
+    echo -e "\n${W}GoClaw source:${N}"
+    echo -e "  ${B}[1] Đường dẫn local (~/projects/goclaw)${N}"
+    echo -e "  ${B}[2] Git URL (tự clone — không cần source local)${N}"
+    read -rp "  → Chọn [1/2]: " _src_choice
+    if [[ "${_src_choice:-1}" == "2" ]]; then
+      echo -e "\n${W}Git repository URL:${N}"
+      echo -e "  ${B}Ví dụ: https://github.com/org/goclaw${N}"
+      read -rp "  → URL: " GOCLAW_REPO_URL
+      [[ -z "$GOCLAW_REPO_URL" ]] && die "Git URL không được để trống"
+      echo -e "\n${W}Branch/tag (Enter = default branch):${N}"
+      read -rp "  → Branch: " GOCLAW_BRANCH
+    else
+      echo -e "\n${W}Đường dẫn GoClaw source trên máy local:${N}"
+      echo -e "  ${B}Ví dụ: ~/projects/goclaw${N}"
+      read -rp "  → Repo dir: " GOCLAW_REPO_DIR
+      GOCLAW_REPO_DIR="${GOCLAW_REPO_DIR/#\~/$HOME}"
+      [[ -d "$GOCLAW_REPO_DIR" ]] || die "Directory không tồn tại: ${GOCLAW_REPO_DIR}"
+    fi
+  elif [[ -n "$GOCLAW_REPO_DIR" ]] && [[ -z "$GOCLAW_REPO_URL" ]] && [[ -z "$GOCLAW_BRANCH" ]]; then
+    # Có local dir nhưng chưa hỏi branch → hỏi branch nếu là git repo
+    if [[ -d "${GOCLAW_REPO_DIR}/.git" ]]; then
+      _cur_branch=$(git -C "$GOCLAW_REPO_DIR" symbolic-ref --short HEAD 2>/dev/null || echo "")
+      echo -e "\n${W}Branch/tag để checkout [${_cur_branch:-current}]:${N}"
+      echo -e "  ${B}Enter = giữ nguyên branch hiện tại${N}"
+      read -rp "  → Branch: " GOCLAW_BRANCH
+    fi
   fi
 
   # Target arch
@@ -125,6 +153,45 @@ collect_inputs() {
   TARGET_ARCH="${_a:-$TARGET_ARCH}"
 
   save_config
+}
+
+# ── Prepare source (clone hoặc pull) ──────────────────────────────
+prepare_source() {
+  if [[ -n "$GOCLAW_REPO_URL" ]]; then
+    if [[ -n "$GOCLAW_REPO_DIR" ]] && [[ -d "${GOCLAW_REPO_DIR}/.git" ]]; then
+      # Dir đã có → chỉ pull
+      inf "git pull từ ${GOCLAW_REPO_URL}..."
+      git -C "$GOCLAW_REPO_DIR" fetch origin
+      local _branch="${GOCLAW_BRANCH:-$(git -C "$GOCLAW_REPO_DIR" symbolic-ref --short HEAD 2>/dev/null)}"
+      if [[ -n "$_branch" ]]; then
+        git -C "$GOCLAW_REPO_DIR" checkout "$_branch"
+        git -C "$GOCLAW_REPO_DIR" pull origin "$_branch"
+      else
+        git -C "$GOCLAW_REPO_DIR" pull
+      fi
+    else
+      # Clone vào temp dir
+      _TEMP_CLONE="$(mktemp -d /tmp/goclaw-src-XXXXX)"
+      # Cleanup temp dir khi script kết thúc
+      # shellcheck disable=SC2064
+      trap "rm -rf '${_TEMP_CLONE}'" EXIT
+      local _branch_args=()
+      [[ -n "$GOCLAW_BRANCH" ]] && _branch_args=(--branch "$GOCLAW_BRANCH")
+      inf "git clone ${GOCLAW_REPO_URL}${GOCLAW_BRANCH:+ (${GOCLAW_BRANCH})}..."
+      git clone --depth 1 "${_branch_args[@]}" "$GOCLAW_REPO_URL" "$_TEMP_CLONE" \
+        || die "Clone thất bại: ${GOCLAW_REPO_URL}"
+      GOCLAW_REPO_DIR="$_TEMP_CLONE"
+    fi
+    ok "Source sẵn sàng: ${GOCLAW_REPO_DIR}"
+  elif [[ -n "$GOCLAW_BRANCH" ]] && [[ -d "${GOCLAW_REPO_DIR}/.git" ]]; then
+    # Có local dir + branch chỉ định → checkout + pull
+    inf "git checkout ${GOCLAW_BRANCH}..."
+    git -C "$GOCLAW_REPO_DIR" fetch origin
+    git -C "$GOCLAW_REPO_DIR" checkout "$GOCLAW_BRANCH" \
+      || die "Không checkout được branch: ${GOCLAW_BRANCH}"
+    git -C "$GOCLAW_REPO_DIR" pull origin "$GOCLAW_BRANCH" 2>/dev/null || true
+    ok "Branch: ${GOCLAW_BRANCH}"
+  fi
 }
 
 # ── Detect frontend build info ─────────────────────────────────────
@@ -225,6 +292,12 @@ IFS='.' read -r _maj _min _ <<< "$GO_VERSION_LOCAL"
 
 command -v rsync &>/dev/null || die "rsync chưa cài. Cài: brew install rsync / apt install rsync"
 ok "rsync OK"
+
+command -v git &>/dev/null || die "git chưa cài"
+ok "git OK"
+
+# ── Prepare source (clone/pull nếu cần) ────────────────────────────
+prepare_source
 
 # ── Detect build targets ───────────────────────────────────────────
 detect_frontend
@@ -354,10 +427,13 @@ done
 if [[ "$SERVICE_OK" == "false" ]]; then
   wrn "Service fail sau 20s — đang rollback về binary cũ..."
   ssh_cmd "
-    if [[ -f ${VPS_DEST_BIN}.bak ]]; then
+    if [[ -x ${VPS_DEST_BIN}.bak ]]; then
       cp -f ${VPS_DEST_BIN}.bak ${VPS_DEST_BIN}
+      chmod +x ${VPS_DEST_BIN}
       systemctl restart goclaw
       echo 'Rollback OK'
+    elif [[ -f ${VPS_DEST_BIN}.bak ]]; then
+      echo 'Backup tồn tại nhưng không executable — bỏ qua rollback'
     else
       echo 'Không có backup để rollback'
     fi

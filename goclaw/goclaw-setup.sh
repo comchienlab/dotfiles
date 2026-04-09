@@ -456,10 +456,11 @@ if [[ "$GO_OK" == "false" ]]; then
   tar -C /usr/local -xzf /tmp/go.tar.gz
   rm -f /tmp/go.tar.gz
 
-  # Add to PATH for all users
-  grep -q '/usr/local/go/bin' /etc/environment 2>/dev/null \
-    || echo 'PATH="/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"' \
-       > /etc/environment
+  # Add to PATH for all users (idempotent — use profile.d, không overwrite /etc/environment)
+  if ! grep -q '/usr/local/go/bin' /etc/profile.d/go.sh 2>/dev/null; then
+    echo 'export PATH="/usr/local/go/bin:$PATH"' > /etc/profile.d/go.sh
+    chmod 644 /etc/profile.d/go.sh
+  fi
   grep -q '/usr/local/go/bin' /root/.bashrc 2>/dev/null \
     || echo 'export PATH="/usr/local/go/bin:$PATH"' >> /root/.bashrc
   export PATH="/usr/local/go/bin:$PATH"
