@@ -206,6 +206,13 @@ Yêu cầu trên máy local: `go 1.22+`, `rsync`, `ssh`.
 </details>
 
 ---
+## 👩‍🏫 9Router
+Setup run this script below:
+```
+curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_9router.sh | sudo bash
+```
+
+
 
 ## ⚙️ Configuration Files
 
