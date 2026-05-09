@@ -1262,7 +1262,7 @@ doc_check_cert() {
 doc_check_security_updates() {
   local count=0
   if command -v apt &>/dev/null; then
-    count=$(apt list --upgradable 2>/dev/null | grep -c -i security || echo 0)
+    count=$(apt list --upgradable 2>/dev/null | awk 'tolower($0) ~ /security/ {count++} END {print count+0}')
   fi
   if [[ "$count" -eq 0 ]]; then
     doc_add OK "updates" "Không có security updates pending" ""
