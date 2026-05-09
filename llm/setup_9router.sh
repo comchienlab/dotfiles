@@ -46,7 +46,30 @@ SYSCTL_CONF="/etc/sysctl.d/99-9router.conf"
 JOURNALD_DROPIN="/etc/systemd/journald.conf.d/99-9router.conf"
 ZRAM_CONF="/etc/systemd/zram-generator.conf.d/99-9router.conf"
 TIER_CACHE="/var/lib/9router/.tier"
+INSTALL_URL="https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_9router.sh"
+INSTALLED_BIN="/usr/local/bin/9router"
+SCRIPT_PATH="$0"
 SCRIPT_NAME="$(basename "$0")"
+
+# Detect curl|bash invocation. When piped, $0 is "bash" and any printed
+# "sudo bash $0 <cmd>" is unrunnable because bash treats <cmd> as a script
+# path and resolves it via PATH (e.g. /usr/bin/install).
+PIPED=false
+if [[ "$SCRIPT_NAME" == "bash" ]] || [[ "$SCRIPT_NAME" == "sh" ]] || [[ "$0" =~ ^/dev/fd/ ]]; then
+  PIPED=true
+fi
+
+# Recompute after self-install so printed help reflects the installed binary.
+compute_invoke_base() {
+  if [[ -x "$INSTALLED_BIN" ]]; then
+    INVOKE_BASE="sudo 9router"
+  elif $PIPED; then
+    INVOKE_BASE="curl -fsSL $INSTALL_URL | sudo bash -s --"
+  else
+    INVOKE_BASE="sudo bash $SCRIPT_PATH"
+  fi
+}
+compute_invoke_base
 
 # ── Globals populated by detect_spec / classify_tier ────────────────
 TOTAL_RAM=0; CPU_CORES=0; TOTAL_DISK=0
@@ -206,7 +229,7 @@ tier_node_mem() {
 # ══════════════════════════════════════════════════════════════════
 #  Common helpers
 # ══════════════════════════════════════════════════════════════════
-require_root() { [[ $EUID -eq 0 ]] || die "Chạy với quyền root: sudo bash $0"; }
+require_root() { [[ $EUID -eq 0 ]] || die "Chạy với quyền root: $INVOKE_BASE"; }
 
 require_linux() {
   [[ "$(uname -s)" == "Linux" ]] || die "This script must run on Linux (Ubuntu/Debian)."
@@ -760,6 +783,24 @@ EOF
 }
 
 # ══════════════════════════════════════════════════════════════════
+#  Phase: Self-install (so future runs are `sudo 9router <cmd>`)
+# ══════════════════════════════════════════════════════════════════
+phase_self_install() {
+  sec "Install toolkit → $INSTALLED_BIN"
+  if $PIPED; then
+    inf "Downloading toolkit..."
+    curl -fsSL "$INSTALL_URL" -o "$INSTALLED_BIN" \
+      || { wrn "Download failed; skipping self-install"; return 0; }
+  else
+    cp "$SCRIPT_PATH" "$INSTALLED_BIN" \
+      || { wrn "Copy failed; skipping self-install"; return 0; }
+  fi
+  chmod +x "$INSTALLED_BIN"
+  compute_invoke_base
+  ok "Toolkit available as: ${B}sudo 9router${N}"
+}
+
+# ══════════════════════════════════════════════════════════════════
 #  Phase: Cleanup
 # ══════════════════════════════════════════════════════════════════
 phase_cleanup() {
@@ -866,13 +907,14 @@ cmd_install() {
   phase_deploy_runtime
   phase_systemd
   phase_caddy
+  phase_self_install
   phase_cleanup
 
   print_done_summary
 }
 
 cmd_update() {
-  is_installed || die "Chưa cài 9router. Chạy: $SCRIPT_NAME install"
+  is_installed || die "Chưa cài 9router. Chạy: $INVOKE_BASE install"
   INSTALL_MODE="update"
   cmd_install   # cmd_install detects existing install and switches mode
 }
@@ -969,8 +1011,8 @@ cmd_status() {
   echo -e "  Swap used   : $(free -m | awk '/Swap:/ {print $3"/"$2" MB"}')"
   echo -e "  Disk free   : $(df -BG / | awk 'NR==2 {print $4}')"
   hr
-  echo -e "  Logs   : ${B}sudo $SCRIPT_NAME logs${N}"
-  echo -e "  Doctor : ${B}sudo $SCRIPT_NAME doctor${N}"
+  echo -e "  Logs   : ${B}$INVOKE_BASE logs${N}"
+  echo -e "  Doctor : ${B}$INVOKE_BASE doctor${N}"
 }
 
 cmd_logs() {
@@ -1036,7 +1078,7 @@ doc_add() { DOCTOR_FINDINGS+=("$1|$2|$3|$4"); }
 
 doc_check_service() {
   if ! is_installed; then
-    doc_add WARN "install" "9router chưa được cài" "sudo $SCRIPT_NAME install"
+    doc_add WARN "install" "9router chưa được cài" "$INVOKE_BASE install"
     return
   fi
   if systemctl is-active --quiet 9router; then
@@ -1069,7 +1111,7 @@ doc_check_memory() {
   if [[ "$avail_swap" -ge 200 ]]; then
     doc_add OK "memory" "Available RAM+swap = ${avail_swap}MB" ""
   else
-    doc_add WARN "memory" "Available RAM+swap chỉ ${avail_swap}MB (<200MB)" "sudo $SCRIPT_NAME tune"
+    doc_add WARN "memory" "Available RAM+swap chỉ ${avail_swap}MB (<200MB)" "$INVOKE_BASE tune"
   fi
 }
 
@@ -1079,12 +1121,12 @@ doc_check_journal() {
   if [[ -f "$JOURNALD_DROPIN" ]]; then
     doc_add OK "journal" "journald cap configured (current: $sz)" ""
   else
-    doc_add WARN "journal" "journald không có cap (current: $sz)" "sudo $SCRIPT_NAME tune"
+    doc_add WARN "journal" "journald không có cap (current: $sz)" "$INVOKE_BASE tune"
   fi
 }
 
 doc_check_sysctl_drift() {
-  [[ -f "$SYSCTL_CONF" ]] || { doc_add WARN "sysctl" "$SYSCTL_CONF không tồn tại" "sudo $SCRIPT_NAME tune"; return; }
+  [[ -f "$SYSCTL_CONF" ]] || { doc_add WARN "sysctl" "$SYSCTL_CONF không tồn tại" "$INVOKE_BASE tune"; return; }
   local drift=0
   while IFS= read -r line; do
     [[ "$line" =~ ^[[:space:]]*# ]] && continue
@@ -1138,7 +1180,7 @@ doc_check_zram() {
   if swapon --show 2>/dev/null | grep -q '^/dev/zram'; then
     doc_add OK "zram" "zram active" ""
   else
-    doc_add WARN "zram" "zram không hoạt động (tier=$TIER cần ${needed}MB)" "sudo $SCRIPT_NAME tune"
+    doc_add WARN "zram" "zram không hoạt động (tier=$TIER cần ${needed}MB)" "$INVOKE_BASE tune"
   fi
 }
 
@@ -1153,7 +1195,7 @@ doc_check_memory_cap() {
   elif [[ "$actual" == "$mmax_expected" ]]; then
     doc_add OK "memmax" "MemoryMax=$actual khớp tier=$TIER" ""
   else
-    doc_add WARN "memmax" "MemoryMax='$actual' không khớp tier=$TIER (expected '$mmax_expected')" "sudo $SCRIPT_NAME tune"
+    doc_add WARN "memmax" "MemoryMax='$actual' không khớp tier=$TIER (expected '$mmax_expected')" "$INVOKE_BASE tune"
   fi
 }
 
@@ -1305,12 +1347,12 @@ print_done_summary() {
   echo -e "  Data         : $DATA_DIR"
   echo ""
   echo -e "  ${W}Commands${N}"
-  echo -e "  Status       : ${B}sudo $SCRIPT_NAME status${N}"
-  echo -e "  Doctor       : ${B}sudo $SCRIPT_NAME doctor${N}     (chạy hàng tuần)"
-  echo -e "  Logs         : ${B}sudo $SCRIPT_NAME logs${N}"
-  echo -e "  Update       : ${B}sudo $SCRIPT_NAME update${N}"
-  echo -e "  Rollback     : ${B}sudo $SCRIPT_NAME rollback${N}"
-  echo -e "  Uninstall    : ${B}sudo $SCRIPT_NAME uninstall${N}"
+  echo -e "  Status       : ${B}$INVOKE_BASE status${N}"
+  echo -e "  Doctor       : ${B}$INVOKE_BASE doctor${N}     (chạy hàng tuần)"
+  echo -e "  Logs         : ${B}$INVOKE_BASE logs${N}"
+  echo -e "  Update       : ${B}$INVOKE_BASE update${N}"
+  echo -e "  Rollback     : ${B}$INVOKE_BASE rollback${N}"
+  echo -e "  Uninstall    : ${B}$INVOKE_BASE uninstall${N}"
   hr
   echo ""
 
@@ -1339,7 +1381,7 @@ interactive_menu() {
     echo "Available commands:"
     echo "  install · update · doctor · tune · status · logs · rollback · uninstall"
     echo ""
-    echo "Run e.g.: sudo bash $0 install"
+    echo "Run e.g.: $INVOKE_BASE install"
     exit 0
   fi
 
@@ -1393,7 +1435,7 @@ main() {
       sed -n '2,22p' "$0"
       ;;
     *)
-      die "Unknown subcommand: $1   (try: $SCRIPT_NAME help)"
+      die "Unknown subcommand: $1   (try: $INVOKE_BASE help)"
       ;;
   esac
 }

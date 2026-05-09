@@ -207,9 +207,22 @@ Yêu cầu trên máy local: `go 1.22+`, `rsync`, `ssh`.
 
 ---
 ## 👩‍🏫 9Router
-Setup run this script below:
+Interactive menu (no args):
 ```sh
 curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_9router.sh | sudo bash
+```
+
+Direct subcommand (note `-s --` — required when passing args via pipe):
+```sh
+curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_9router.sh | sudo bash -s -- install
+```
+
+After install, the toolkit installs itself as `/usr/local/bin/9router`, so:
+```sh
+sudo 9router doctor      # weekly health check
+sudo 9router update      # pull latest + redeploy
+sudo 9router status      # one-screen summary
+sudo 9router rollback    # restore previous build
 ```
 
 
