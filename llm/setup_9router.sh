@@ -28,8 +28,120 @@ ok()  { echo -e "${G}[✔]${N} $*"; }
 inf() { echo -e "${B}[→]${N} $*"; }
 wrn() { echo -e "${Y}[!]${N} $*"; }
 die() { echo -e "${R}[✘]${N} $*" >&2; exit 1; }
-sec() { echo -e "\n${C}${W}━━━  $*  ━━━${N}"; }
+sec() {
+  if ui_has_gum; then
+    echo ""
+    gum style --bold --foreground "$UI_ACCENT" "◆ $*"
+  else
+    echo -e "\n${C}${W}━━━  $*  ━━━${N}"
+  fi
+}
 hr()  { echo -e "${C}──────────────────────────────────────────${N}"; }
+
+# ── Gum UI helpers (TTY-first, ANSI fallback) ────────────────────────
+UI_ACCENT="86"
+UI_PURPLE="99"
+UI_GREEN="46"
+UI_YELLOW="226"
+UI_RED="196"
+UI_MUTED="245"
+
+ui_has_gum() {
+  command -v gum &>/dev/null && [[ -t 1 ]]
+}
+
+ui_style() {
+  if ui_has_gum; then
+    gum style "$@"
+  else
+    local text="${*: -1}"
+    printf '%s\n' "$text"
+  fi
+}
+
+ui_panel() {
+  local title="$1"; shift
+  local body="$*"
+  if ui_has_gum; then
+    gum style \
+      --border rounded \
+      --border-foreground "$UI_ACCENT" \
+      --padding "1 2" \
+      --margin "1 0" \
+      --foreground "255" \
+      "$title"$'\n\n'"$body"
+  else
+    sec "$title"
+    printf '%b\n' "$body"
+    hr
+  fi
+}
+
+ui_step() {
+  if ui_has_gum; then
+    gum log --level info --prefix "9router" --message.foreground "$UI_ACCENT" "$*"
+  else
+    inf "$*"
+  fi
+}
+
+ui_ok() {
+  if ui_has_gum; then
+    gum log --level info --prefix "9router" --level.foreground "$UI_GREEN" --message.foreground "$UI_GREEN" "✔ $*"
+  else
+    ok "$*"
+  fi
+}
+
+ui_warn() {
+  if ui_has_gum; then
+    gum log --level warn --prefix "9router" --level.foreground "$UI_YELLOW" --message.foreground "$UI_YELLOW" "⚠ $*"
+  else
+    wrn "$*"
+  fi
+}
+
+ui_error() {
+  if ui_has_gum; then
+    gum log --level error --prefix "9router" --level.foreground "$UI_RED" --message.foreground "$UI_RED" "✖ $*"
+  else
+    echo -e "${R}[✘]${N} $*" >&2
+  fi
+}
+
+ui_table() {
+  if ui_has_gum; then
+    gum table \
+      --print \
+      --border rounded \
+      --border.foreground "$UI_ACCENT" \
+      --header.foreground "$UI_PURPLE" \
+      --cell.foreground "255" \
+      "$@"
+  else
+    cat
+  fi
+}
+
+ui_hint() {
+  if ui_has_gum; then
+    gum style --foreground "$UI_MUTED" "↑↓ move  •  Enter select  •  Esc cancel"
+  fi
+}
+
+ui_spin() {
+  local title="$1"; shift
+  if ui_has_gum; then
+    if gum spin --help 2>/dev/null | grep -q -- '--show-error'; then
+      gum spin --spinner dot --spinner.foreground "$UI_ACCENT" --title.foreground "$UI_ACCENT" --title "$title" --show-error -- "$@"
+    else
+      gum spin --spinner dot --title "$title" -- "$@"
+    fi
+  else
+    inf "$title"
+    "$@"
+  fi
+}
 
 # ── Path constants ──────────────────────────────────────────────────
 REPO_URL="https://github.com/decolua/9router.git"
@@ -96,7 +208,12 @@ show_banner() {
 ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 BANNER
   echo -e "${N}"
-  echo -e "  ${W}AI Proxy Router — VPS Toolkit${N}"
+  if ui_has_gum; then
+    gum style --bold --foreground "$UI_ACCENT" "  AI Proxy Router — VPS Toolkit"
+    gum style --foreground "$UI_MUTED" "  Low-spec VPS install · update · doctor · rollback"
+  else
+    echo -e "  ${W}AI Proxy Router — VPS Toolkit${N}"
+  fi
   hr
 }
 
@@ -123,18 +240,37 @@ classify_tier() {
 }
 
 show_spec() {
-  echo -e "  IP        : ${Y}${W}$VPS_IP${N}"
-  echo -e "  OS        : $OS_INFO  (kernel $KERNEL)"
-  echo -e "  CPU       : ${CPU_CORES} cores"
-  echo -e "  RAM       : ${TOTAL_RAM} MB"
-  echo -e "  Swap      : ${SWAP_MB} MB"
-  echo -e "  Disk free : ${TOTAL_DISK} GB"
+  local tier_label tier_note
   case "$TIER" in
-    tiny)   echo -e "  Tier      : ${R}${W}tiny${N} (<1GB) — aggressive low-spec mode" ;;
-    small)  echo -e "  Tier      : ${Y}${W}small${N} (1–2GB) — default low-spec target" ;;
-    medium) echo -e "  Tier      : ${G}${W}medium+${N} (≥2GB) — comfortable" ;;
+    tiny)   tier_label="tiny"; tier_note="<1GB · aggressive low-spec mode" ;;
+    small)  tier_label="small"; tier_note="1-2GB · default low-spec target" ;;
+    medium) tier_label="medium+"; tier_note=">=2GB · comfortable" ;;
   esac
-  hr
+  if ui_has_gum; then
+    {
+      printf 'Metric\tValue\n'
+      printf 'IP\t%s\n' "$VPS_IP"
+      printf 'OS\t%s (kernel %s)\n' "$OS_INFO" "$KERNEL"
+      printf 'CPU\t%s cores\n' "$CPU_CORES"
+      printf 'RAM\t%s MB\n' "$TOTAL_RAM"
+      printf 'Swap\t%s MB\n' "$SWAP_MB"
+      printf 'Disk free\t%s GB\n' "$TOTAL_DISK"
+      printf 'Tier\t%s (%s)\n' "$tier_label" "$tier_note"
+    } | ui_table --separator $'\t'
+  else
+    echo -e "  IP        : ${Y}${W}$VPS_IP${N}"
+    echo -e "  OS        : $OS_INFO  (kernel $KERNEL)"
+    echo -e "  CPU       : ${CPU_CORES} cores"
+    echo -e "  RAM       : ${TOTAL_RAM} MB"
+    echo -e "  Swap      : ${SWAP_MB} MB"
+    echo -e "  Disk free : ${TOTAL_DISK} GB"
+    case "$TIER" in
+      tiny)   echo -e "  Tier      : ${R}${W}tiny${N} (<1GB) — aggressive low-spec mode" ;;
+      small)  echo -e "  Tier      : ${Y}${W}small${N} (1–2GB) — default low-spec target" ;;
+      medium) echo -e "  Tier      : ${G}${W}medium+${N} (≥2GB) — comfortable" ;;
+    esac
+    hr
+  fi
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -195,20 +331,22 @@ vm.swappiness                 = 10
 vm.dirty_ratio                = 15
 vm.dirty_background_ratio     = 5
 vm.overcommit_memory          = 1
+vm.vfs_cache_pressure         = 200
+vm.min_free_kbytes            = 65536
 EOF
 }
 
 tier_memory_high() {
   case "$TIER" in
-    tiny)   echo "400M" ;;
-    small)  echo "700M" ;;
+    tiny)   echo "600M" ;;
+    small)  echo "1000M" ;;
     medium) echo "" ;;   # unlimited
   esac
 }
 tier_memory_max() {
   case "$TIER" in
-    tiny)   echo "512M" ;;
-    small)  echo "900M" ;;
+    tiny)   echo "700M" ;;
+    small)  echo "1200M" ;;
     medium) echo "" ;;   # unlimited
   esac
 }
@@ -226,10 +364,17 @@ tier_swap_mb() {
   esac
 }
 tier_node_mem() {
-  local m=$(( TOTAL_RAM / 2 ))
-  [[ $m -lt 512  ]] && m=512
-  [[ $m -gt 1536 ]] && m=1536
-  echo "$m"
+  if [[ $TOTAL_RAM -le 1024 ]]; then
+    echo 768
+  elif [[ $TOTAL_RAM -le 2048 ]]; then
+    echo 1024
+  else
+    echo 1536
+  fi
+}
+
+build_available_mb() {
+  awk '/MemAvailable/ {a=$2} /SwapFree/ {s=$2} END{printf "%.0f",(a+s)/1024}' /proc/meminfo 2>/dev/null || echo 0
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -263,13 +408,13 @@ ensure_gum() {
 }
 
 ensure_essentials() {
-  inf "Cài essential tools..."
-  apt-get install -y -qq \
+  ui_step "Cài essential tools..."
+  ui_spin "Installing essential VPS tools..." apt-get install -y -qq \
     curl wget git ca-certificates openssl gnupg \
     htop vim net-tools unzip lsof rsync \
     ufw fail2ban \
     build-essential jq
-  ok "Essential tools ready"
+  ui_ok "Essential tools ready"
 }
 
 ensure_service_user() {
@@ -284,9 +429,9 @@ ensure_service_user() {
 
 wait_for_service() {
   local svc="$1" max="${2:-15}" interval="${3:-2}" attempt=0
-  inf "Chờ $svc khởi động..."
+  ui_step "Chờ $svc khởi động..."
   while [[ $attempt -lt $max ]]; do
-    systemctl is-active --quiet "$svc" && { ok "$svc running"; return 0; }
+    systemctl is-active --quiet "$svc" && { ui_ok "$svc running"; return 0; }
     attempt=$(( attempt + 1 ))
     sleep "$interval"
   done
@@ -295,19 +440,102 @@ wait_for_service() {
 
 wait_for_https() {
   local domain="$1" max=12 attempt=0
-  inf "Chờ Caddy xin TLS cert (tối đa 60s)..."
+  ui_step "Chờ Caddy xin TLS cert (tối đa 60s)..."
   while [[ $attempt -lt $max ]]; do
-    curl -fsI "https://$domain" &>/dev/null && { ok "HTTPS live: https://$domain"; return 0; }
+    curl -fsI "https://$domain" &>/dev/null && { ui_ok "HTTPS live: https://$domain"; return 0; }
     attempt=$(( attempt + 1 ))
     sleep 5
   done
-  wrn "DNS chưa propagate tới $VPS_IP — HTTPS tự lên sau khi DNS lan truyền"
-  wrn "Kiểm tra: curl -I https://$domain"
+  ui_warn "DNS chưa propagate tới $VPS_IP — HTTPS tự lên sau khi DNS lan truyền"
+  ui_warn "Kiểm tra: curl -I https://$domain"
 }
 
 ensure_ufw_rule() {
   local rule="$1"
   ufw status 2>/dev/null | grep -qE "^${rule}.*ALLOW" || ufw allow "$rule" &>/dev/null
+}
+
+clean_build_caches() {
+  local scope="${1:-normal}"
+  [[ -d "$BUILD_DIR" ]] || return 0
+  ui_step "Cleaning build caches ($scope)..."
+  rm -rf \
+    "$BUILD_DIR/.next" \
+    "$BUILD_DIR/node_modules/.cache" \
+    "$BUILD_DIR/.turbo" \
+    "$BUILD_DIR/.cache" \
+    "$BUILD_DIR/tmp" \
+    "$BUILD_DIR/.tmp" \
+    "$BUILD_DIR"/tsconfig.tsbuildinfo \
+    "$BUILD_DIR"/.eslintcache 2>/dev/null || true
+  ui_spin "Pruning pnpm store..." bash -c 'pnpm store prune &>/dev/null' || true
+  if [[ "$scope" == "retry" ]]; then
+    rm -rf /tmp/next-* /tmp/turbopack-* /tmp/v8-compile-cache-* 2>/dev/null || true
+    npm cache clean --force &>/dev/null || true
+  fi
+  ui_ok "Build caches cleaned"
+}
+
+show_build_memory_plan() {
+  local heap="$1" free_total="$2" need="$3"
+  if ui_has_gum; then
+    ui_panel "Build memory plan" \
+      "Tier              : $TIER"$'\n'"Node heap         : ${heap}MB"$'\n'"Available RAM+swap: ${free_total}MB"$'\n'"Target headroom   : ${need}MB"$'\n'"Cache policy      : clean before build + stronger retry cleanup"
+  else
+    ui_step "Build memory plan: tier=$TIER heap=${heap}MB free=${free_total}MB need=${need}MB"
+  fi
+}
+
+remove_webpack_forced_builds() {
+  local forced_build="next build --""webpack"
+  if [[ -f package.json ]] && grep -q "$forced_build" package.json; then
+    perl -0pi -e 's/next build --\x77ebpack/next build/g' package.json
+    ui_ok "Removed forced webpack from Next.js build scripts"
+  else
+    ui_ok "No forced webpack build scripts found"
+  fi
+}
+
+ensure_next_standalone_output() {
+  local cfg=""
+  for candidate in next.config.js next.config.mjs next.config.cjs next.config.ts next.config.mts; do
+    if [[ -f "$candidate" ]]; then
+      cfg="$candidate"
+      break
+    fi
+  done
+
+  if [[ -z "$cfg" ]]; then
+    cat > next.config.mjs << 'EOF'
+const nextConfig = {
+  output: 'standalone',
+};
+
+export default nextConfig;
+EOF
+    ui_ok "Created next.config.mjs with output: standalone"
+    return 0
+  fi
+
+  if grep -Eq "output[[:space:]]*:[[:space:]]*['\"]standalone['\"]" "$cfg"; then
+    ui_ok "Next.js standalone output already enabled ($cfg)"
+    return 0
+  fi
+
+  cp -a "$cfg" "$cfg.bak.$(date +%s)"
+  if grep -Eq "module\.exports[[:space:]]*=[[:space:]]*\{" "$cfg"; then
+    perl -0pi -e "s/module\.exports[[:space:]]*=[[:space:]]*\{/module.exports = {\n  output: 'standalone',/" "$cfg"
+  elif grep -Eq "const[[:space:]]+nextConfig[[:space:]]*=[[:space:]]*\{" "$cfg"; then
+    perl -0pi -e "s/const[[:space:]]+nextConfig[[:space:]]*=[[:space:]]*\{/const nextConfig = {\n  output: 'standalone',/" "$cfg"
+  elif grep -Eq "export[[:space:]]+default[[:space:]]*\{" "$cfg"; then
+    perl -0pi -e "s/export[[:space:]]+default[[:space:]]*\{/export default {\n  output: 'standalone',/" "$cfg"
+  else
+    die "Cannot safely enable output: 'standalone' in $cfg. Please add it to Next config."
+  fi
+
+  grep -Eq "output[[:space:]]*:[[:space:]]*['\"]standalone['\"]" "$cfg" \
+    || die "Failed to enable output: 'standalone' in $cfg"
+  ui_ok "Enabled Next.js standalone output in $cfg"
 }
 
 backup_env_file() {
@@ -389,7 +617,15 @@ is_installed() {
 ask_str() {
   local label="$1" default="${2:-}" out
   if command -v gum &>/dev/null; then
-    out=$(gum input --prompt "  → $label: " --placeholder "$default" --value "$default" </dev/tty)
+    out=$(gum input \
+      --prompt "→ " \
+      --prompt.foreground "$UI_ACCENT" \
+      --placeholder "$default" \
+      --placeholder.foreground "$UI_MUTED" \
+      --header "$label" \
+      --header.foreground "$UI_PURPLE" \
+      --value "$default" \
+      </dev/tty)
   else
     read -rp "  → $label [$default]: " out </dev/tty
     out="${out:-$default}"
@@ -399,8 +635,20 @@ ask_str() {
 
 ask_secret() {
   local label="$1" default="${2:-}" out
-  read -rsp "  → $label [$default]: " out </dev/tty
-  echo >/dev/tty
+  if command -v gum &>/dev/null; then
+    out=$(gum input \
+      --password \
+      --prompt "→ " \
+      --prompt.foreground "$UI_ACCENT" \
+      --placeholder "$default" \
+      --placeholder.foreground "$UI_MUTED" \
+      --header "$label" \
+      --header.foreground "$UI_PURPLE" \
+      </dev/tty)
+  else
+    read -rsp "  → $label [$default]: " out </dev/tty
+    echo >/dev/tty
+  fi
   out="${out:-$default}"
   printf '%s' "$out"
 }
@@ -408,7 +656,15 @@ ask_secret() {
 ask_confirm() {
   local label="$1"
   if command -v gum &>/dev/null; then
-    gum confirm "$label" </dev/tty
+    gum confirm "$label" \
+      --affirmative "Yes" \
+      --negative "No" \
+      --prompt.foreground "$UI_PURPLE" \
+      --selected.background "$UI_ACCENT" \
+      --selected.foreground "230" \
+      --unselected.foreground "254" \
+      --unselected.background "235" \
+      </dev/tty
   else
     read -rp "$label [y/N] " r </dev/tty
     [[ "$r" =~ ^[Yy]$ ]]
@@ -457,26 +713,26 @@ phase_optimize_system() {
   export DEBIAN_FRONTEND=noninteractive
   export NEEDRESTART_MODE=a
 
-  inf "apt update + upgrade..."
-  apt-get update -qq
-  apt-get upgrade -y -qq \
+  ui_step "apt update + upgrade..."
+  ui_spin "Refreshing apt package lists..." apt-get update -qq
+  ui_spin "Applying package upgrades..." apt-get upgrade -y -qq \
     -o Dpkg::Options::="--force-confdef" \
     -o Dpkg::Options::="--force-confold"
-  ok "System packages updated"
+  ui_ok "System packages updated"
 
   ensure_essentials
 
   # Sysctl per tier + common
-  inf "Applying sysctl (tier=$TIER, BBR enabled)..."
+  ui_step "Applying sysctl (tier=$TIER, BBR enabled)..."
   {
     echo "# Auto-generated by 9router (tier=$TIER, $(date -Iseconds))"
     tier_sysctl_block
   } > "$SYSCTL_CONF"
   sysctl -p "$SYSCTL_CONF" &>/dev/null || wrn "Some sysctl keys not applied (kernel may lack BBR module)"
-  ok "sysctl applied"
+  ui_ok "sysctl applied"
 
   # ulimits
-  inf "Setting open file limits..."
+  ui_step "Setting open file limits..."
   if ! grep -q "^\*.*soft.*nofile.*65535" /etc/security/limits.conf 2>/dev/null; then
     cat >> /etc/security/limits.conf << 'EOF'
 # 9router
@@ -486,10 +742,10 @@ root      soft  nofile  65535
 root      hard  nofile  65535
 EOF
   fi
-  ok "ulimits set (nofile=65535)"
+  ui_ok "ulimits set (nofile=65535)"
 
   # journald cap
-  inf "Capping journald (200M / 50M file / 2 week retention)..."
+  ui_step "Capping journald (200M / 50M file / 2 week retention)..."
   mkdir -p /etc/systemd/journald.conf.d
   cat > "$JOURNALD_DROPIN" << 'EOF'
 # Auto-generated by 9router
@@ -498,22 +754,22 @@ SystemMaxUse=200M
 SystemMaxFileSize=50M
 MaxRetentionSec=2week
 EOF
-  systemctl restart systemd-journald 2>/dev/null || true
-  ok "journald capped"
+  ui_spin "Restarting systemd-journald..." bash -c 'systemctl restart systemd-journald 2>/dev/null' || true
+  ui_ok "journald capped"
 
   # unattended-upgrades
-  inf "Enabling unattended-upgrades..."
-  apt-get install -y -qq unattended-upgrades 2>/dev/null || true
+  ui_step "Enabling unattended-upgrades..."
+  ui_spin "Installing unattended-upgrades..." bash -c 'apt-get install -y -qq unattended-upgrades 2>/dev/null' || true
   if [[ -f /etc/apt/apt.conf.d/20auto-upgrades ]] \
      && grep -q "Unattended-Upgrade" /etc/apt/apt.conf.d/20auto-upgrades; then
-    ok "unattended-upgrades already configured"
+    ui_ok "unattended-upgrades already configured"
   else
     cat > /etc/apt/apt.conf.d/20auto-upgrades << 'EOF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 APT::Periodic::AutocleanInterval "7";
 EOF
-    ok "unattended-upgrades enabled"
+    ui_ok "unattended-upgrades enabled"
   fi
 }
 
@@ -523,7 +779,7 @@ EOF
 phase_zram() {
   local size_mb; size_mb=$(tier_zram_mb)
   if [[ $size_mb -eq 0 ]]; then
-    inf "zram skipped (tier=$TIER)"
+    ui_step "zram skipped (tier=$TIER)"
     return 0
   fi
 
@@ -531,7 +787,7 @@ phase_zram() {
 
   # Use systemd-zram-generator (preferred, preinstalled on Ubuntu 22.04+)
   if [[ ! -d /etc/systemd/zram-generator.conf.d ]]; then
-    apt-get install -y -qq systemd-zram-generator 2>/dev/null \
+    ui_spin "Installing systemd-zram-generator..." bash -c 'apt-get install -y -qq systemd-zram-generator 2>/dev/null' \
       || { wrn "systemd-zram-generator not available; skipping zram"; return 0; }
   fi
   mkdir -p /etc/systemd/zram-generator.conf.d
@@ -542,10 +798,10 @@ zram-size = ${size_mb}
 compression-algorithm = lz4
 swap-priority = 100
 EOF
-  systemctl daemon-reload
-  systemctl restart systemd-zram-setup@zram0.service 2>/dev/null || true
+  ui_spin "Reloading systemd..." systemctl daemon-reload
+  ui_spin "Starting zram device..." bash -c 'systemctl restart systemd-zram-setup@zram0.service 2>/dev/null' || true
   if swapon --show 2>/dev/null | grep -q '^/dev/zram'; then
-    ok "zram active: $(swapon --show=NAME,SIZE,PRIO 2>/dev/null | grep zram | awk '{print $1, $2, "prio="$3}')"
+    ui_ok "zram active: $(swapon --show=NAME,SIZE,PRIO 2>/dev/null | grep zram | awk '{print $1, $2, "prio="$3}')"
   else
     wrn "zram not yet active — will activate on next boot"
   fi
@@ -559,11 +815,11 @@ phase_swap() {
   [[ $needed -eq 0 ]] && return 0
 
   if [[ $(swapon --show --noheadings 2>/dev/null | wc -l) -gt 0 ]]; then
-    ok "Swap already configured: $(free -h | awk '/Swap/ {print $2}')"
+    ui_ok "Swap already configured: $(free -h | awk '/Swap/ {print $2}')"
     return 0
   fi
 
-  inf "Tạo swap ${needed}MB..."
+  ui_step "Tạo swap ${needed}MB..."
   local swapfile=/swapfile
   [[ -f "$swapfile" ]] && swapoff "$swapfile" 2>/dev/null || true
   fallocate -l "${needed}M" "$swapfile" 2>/dev/null \
@@ -572,7 +828,7 @@ phase_swap() {
   mkswap -q "$swapfile"
   swapon "$swapfile"
   grep -q "$swapfile" /etc/fstab || echo "$swapfile none swap sw 0 0" >> /etc/fstab
-  ok "Swap ${needed}MB active"
+  ui_ok "Swap ${needed}MB active"
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -581,7 +837,7 @@ phase_swap() {
 phase_security() {
   sec "Security (UFW · fail2ban · SSH)"
 
-  inf "Configuring UFW..."
+  ui_step "Configuring UFW..."
   if ufw status 2>/dev/null | grep -q "Status: inactive"; then
     ufw default deny incoming  &>/dev/null
     ufw default allow outgoing &>/dev/null
@@ -591,17 +847,17 @@ phase_security() {
   ensure_ufw_rule "443/tcp"
   [[ -z "$DOMAIN" ]] && ensure_ufw_rule "$APP_PORT/tcp" || true
   ufw status 2>/dev/null | grep -q "Status: active" || ufw --force enable &>/dev/null
-  ok "UFW configured (ssh, 80, 443$([ -z "$DOMAIN" ] && echo ", $APP_PORT" || echo ""))"
+  ui_ok "UFW configured (ssh, 80, 443$([ -z "$DOMAIN" ] && echo ", $APP_PORT" || echo ""))"
 
-  systemctl enable fail2ban &>/dev/null
-  systemctl restart fail2ban
-  ok "fail2ban active"
+  ui_spin "Enabling fail2ban..." bash -c 'systemctl enable fail2ban &>/dev/null'
+  ui_spin "Restarting fail2ban..." systemctl restart fail2ban
+  ui_ok "fail2ban active"
 
   local sshd=/etc/ssh/sshd_config
   grep -q "^ClientAliveInterval" "$sshd" || echo "ClientAliveInterval 120" >> "$sshd"
   grep -q "^ClientAliveCountMax" "$sshd" || echo "ClientAliveCountMax 3"   >> "$sshd"
   systemctl reload sshd 2>/dev/null || systemctl reload ssh 2>/dev/null || true
-  ok "SSH keepalive configured"
+  ui_ok "SSH keepalive configured"
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -617,20 +873,20 @@ phase_node_pnpm() {
     [[ "$major" =~ ^[0-9]+$ ]] && [[ $major -ge 20 ]] && node_ok=true
   fi
   if [[ "$node_ok" == "false" ]]; then
-    inf "Cài Node.js 20..."
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &>/dev/null
-    apt-get install -y -qq nodejs
-    ok "Node.js $(node -v) installed"
+    ui_step "Cài Node.js 20..."
+    ui_spin "Configuring NodeSource repository..." bash -c 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &>/dev/null'
+    ui_spin "Installing Node.js 20..." apt-get install -y -qq nodejs
+    ui_ok "Node.js $(node -v) installed"
   else
-    ok "Node.js $(node -v) already installed"
+    ui_ok "Node.js $(node -v) already installed"
   fi
 
   if ! command -v pnpm &>/dev/null; then
-    inf "Cài pnpm..."
-    npm install -g pnpm --silent
-    ok "pnpm $(pnpm -v) installed"
+    ui_step "Cài pnpm..."
+    ui_spin "Installing pnpm globally..." npm install -g pnpm --silent
+    ui_ok "pnpm $(pnpm -v) installed"
   else
-    ok "pnpm $(pnpm -v) already installed"
+    ui_ok "pnpm $(pnpm -v) already installed"
   fi
 }
 
@@ -640,52 +896,61 @@ phase_node_pnpm() {
 phase_build() {
   sec "Build 9Router"
 
-  systemctl stop 9router 2>/dev/null && wrn "Stopped existing 9router" || true
+  systemctl stop 9router 2>/dev/null && ui_warn "Stopped existing 9router" || true
 
   rm -rf "$BUILD_DIR"
   mkdir -p "$BUILD_DIR"
-  inf "Cloning repository..."
-  git clone --depth=1 "$REPO_URL" "$BUILD_DIR" &>/dev/null
-  ok "Cloned"
+  ui_step "Cloning repository..."
+  # shellcheck disable=SC2016
+  ui_spin "Cloning 9Router source..." bash -c 'git clone --depth=1 "$1" "$2" &>/dev/null' _ "$REPO_URL" "$BUILD_DIR"
+  ui_ok "Cloned"
 
   NEW_COMMIT=$(git -C "$BUILD_DIR" rev-parse --short HEAD 2>/dev/null || echo "?")
-  inf "Phiên bản mới: $NEW_COMMIT"
+  ui_step "Phiên bản mới: $NEW_COMMIT"
 
   cd "$BUILD_DIR"
   unset NODE_ENV
   export NEXT_TELEMETRY_DISABLED=1
+  export NEXT_DISABLE_WEBPACK_CACHE=1
+  export CI=true
+
+  remove_webpack_forced_builds
+  ensure_next_standalone_output
 
   local mem_limit; mem_limit=$(tier_node_mem)
   export NODE_OPTIONS="--max-old-space-size=${mem_limit}"
-  inf "Node build memory limit: ${mem_limit}MB"
+  ui_step "Node build memory limit: ${mem_limit}MB"
 
-  # Headroom pre-flight: free RAM + swap must exceed mem_limit + 256MB
+  # Headroom pre-flight: keep RAM+swap above heap plus OS/build overhead.
   local free_total
-  free_total=$(awk '/MemAvailable/ {a=$2} /SwapFree/ {s=$2} END{printf "%.0f",(a+s)/1024}' /proc/meminfo)
-  local need=$(( mem_limit + 256 ))
+  free_total=$(build_available_mb)
+  local need=$(( mem_limit + 384 ))
+  show_build_memory_plan "$mem_limit" "$free_total" "$need"
   if [[ $free_total -lt $need ]]; then
-    wrn "Free RAM+swap = ${free_total}MB, build needs ${need}MB"
-    wrn "Phase B should have enabled zram/swap. Continuing but build may OOM."
+    ui_warn "Free RAM+swap = ${free_total}MB, build needs ${need}MB"
+    ui_warn "Continuing with low-memory settings, but build may still OOM."
   fi
 
-  inf "Installing dependencies..."
-  pnpm install --include=optional --silent
-  pnpm add -D @tailwindcss/postcss --silent
-  pnpm add prop-types --silent
-  ok "Dependencies ready"
+  clean_build_caches "pre-build"
+  ui_step "Installing dependencies..."
+  ui_spin "pnpm install (low-memory mode)..." pnpm install --frozen-lockfile --prefer-offline --silent
+  ui_ok "Dependencies ready"
 
   BUILD_LOG="/tmp/9router-build-$$.log"
-  inf "Building Next.js (2-4 phút)..."
+  ui_step "Building Next.js (2-4 phút)..."
   export NODE_ENV=production
   if ! pnpm run build 2>&1 | tee "$BUILD_LOG" | tail -5; then
-    wrn "Build failed — clearing caches and retrying once..."
-    pnpm store prune &>/dev/null || true
-    sync; echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+    ui_warn "Build failed — clearing caches and retrying once..."
+    clean_build_caches "retry"
+    free_total=$(build_available_mb)
+    mem_limit=$(tier_node_mem)
+    export NODE_OPTIONS="--max-old-space-size=${mem_limit}"
+    ui_step "Retry Node build memory limit: ${mem_limit}MB (free RAM+swap ${free_total}MB)"
     if ! pnpm run build 2>&1 | tee -a "$BUILD_LOG" | tail -5; then
       build_failure_recover "Build thất bại sau retry. Log đầy đủ: $BUILD_LOG"
     fi
   fi
-  ok "Build complete"
+  ui_ok "Build complete"
   if [[ ! -f .next/standalone/server.js ]]; then
     build_failure_recover "Build thất bại: server.js không tìm thấy"
   fi
@@ -696,8 +961,8 @@ phase_build() {
 build_failure_recover() {
   local msg="$1"
   if [[ "$INSTALL_MODE" == "update" ]] && [[ -d "$PREVIOUS_DIR" ]]; then
-    wrn "$msg"
-    wrn "Update mode — rolling back to previous build"
+    ui_warn "$msg"
+    ui_warn "Update mode — rolling back to previous build"
     auto_rollback
     die "Update rolled back. Service đang chạy build cũ. Log: ${BUILD_LOG:-n/a}"
   fi
@@ -713,18 +978,18 @@ phase_deploy_runtime() {
 
   # Snapshot current runtime for rollback
   if [[ -d "$RUNTIME_DIR" ]] && [[ -f "$RUNTIME_DIR/server.js" ]]; then
-    inf "Snapshotting current runtime → $PREVIOUS_DIR"
+    ui_step "Snapshotting current runtime → $PREVIOUS_DIR"
     rm -rf "$PREVIOUS_DIR"
-    cp -a "$RUNTIME_DIR" "$PREVIOUS_DIR"
-    ok "Previous build saved"
+    ui_spin "Saving previous runtime snapshot..." cp -a "$RUNTIME_DIR" "$PREVIOUS_DIR"
+    ui_ok "Previous build saved"
   fi
 
   mkdir -p "$RUNTIME_DIR/.next" "$DATA_DIR"
 
   if command -v rsync &>/dev/null; then
-    rsync -a --delete .next/standalone/ "$RUNTIME_DIR/"
-    rsync -a --delete .next/static/     "$RUNTIME_DIR/.next/static/"
-    [[ -d public ]] && rsync -a --delete public/ "$RUNTIME_DIR/public/" || true
+    ui_spin "Syncing standalone runtime..." rsync -a --delete .next/standalone/ "$RUNTIME_DIR/"
+    ui_spin "Syncing static assets..." rsync -a --delete .next/static/ "$RUNTIME_DIR/.next/static/"
+    [[ -d public ]] && ui_spin "Syncing public assets..." rsync -a --delete public/ "$RUNTIME_DIR/public/" || true
   else
     cp -a .next/standalone/. "$RUNTIME_DIR/"
     cp -a .next/static       "$RUNTIME_DIR/.next/"
@@ -733,7 +998,7 @@ phase_deploy_runtime() {
 
   git -C "$BUILD_DIR" rev-parse --short HEAD > "$RUNTIME_DIR/.install-commit" 2>/dev/null || true
   chown -R "$SERVICE_USER:$SERVICE_GROUP" "$RUNTIME_DIR" "$DATA_DIR"
-  ok "Runtime → $RUNTIME_DIR"
+  ui_ok "Runtime → $RUNTIME_DIR"
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -744,7 +1009,7 @@ phase_systemd() {
 
   backup_env_file
   write_env_file
-  ok "Env → $ENV_FILE (chmod 600)"
+  ui_ok "Env → $ENV_FILE (chmod 600)"
 
   cat > "$SERVICE_FILE" << EOF
 [Unit]
@@ -788,27 +1053,27 @@ EOF
 MemoryHigh=$mhigh
 MemoryMax=$mmax
 EOF
-    ok "MemoryMax=$mmax MemoryHigh=$mhigh (tier=$TIER)"
+    ui_ok "MemoryMax=$mmax MemoryHigh=$mhigh (tier=$TIER)"
   else
     rm -f "$SERVICE_DROPIN_DIR/10-memory.conf"
-    ok "No memory cap (tier=medium+)"
+    ui_ok "No memory cap (tier=medium+)"
   fi
 
   echo "$TIER" > "$TIER_CACHE" 2>/dev/null || true
 
-  systemctl daemon-reload
-  systemctl enable 9router &>/dev/null
-  systemctl restart 9router
+  ui_spin "Reloading systemd units..." systemctl daemon-reload
+  ui_spin "Enabling 9router service..." bash -c 'systemctl enable 9router &>/dev/null'
+  ui_spin "Restarting 9router service..." systemctl restart 9router
 
   if ! wait_for_service 9router 15 2; then
-    wrn "9router không start — auto-rollback nếu có snapshot"
+    ui_warn "9router không start — auto-rollback nếu có snapshot"
     if [[ "$INSTALL_MODE" == "update" ]] && [[ -d "$PREVIOUS_DIR" ]]; then
       auto_rollback
       die "Update rolled back. Service đang chạy build cũ."
     fi
     die "9router không start được. Check: journalctl -u 9router -n 30"
   fi
-  ok "9router running on port $APP_PORT"
+  ui_ok "9router running on port $APP_PORT"
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -818,19 +1083,19 @@ phase_caddy() {
   [[ -z "$DOMAIN" ]] && return 0
   sec "Caddy + HTTPS"
 
-  apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https
+  ui_spin "Installing Caddy repository prerequisites..." apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https
 
   if ! command -v caddy &>/dev/null; then
-    inf "Cài Caddy..."
+    ui_step "Cài Caddy..."
     curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
       | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
     curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
       | tee /etc/apt/sources.list.d/caddy-stable.list &>/dev/null
-    apt-get update -qq
-    apt-get install -y -qq caddy
-    ok "Caddy installed"
+    ui_spin "Refreshing apt package lists..." apt-get update -qq
+    ui_spin "Installing Caddy..." apt-get install -y -qq caddy
+    ui_ok "Caddy installed"
   else
-    ok "Caddy $(caddy version | head -1) already installed"
+    ui_ok "Caddy $(caddy version | head -1) already installed"
   fi
 
   mkdir -p /etc/caddy
@@ -856,11 +1121,11 @@ EOF
     fi
     die "Caddyfile invalid. Restored previous config if available."
   fi
-  ok "Caddyfile → $CADDYFILE"
+  ui_ok "Caddyfile → $CADDYFILE"
 
-  systemctl enable caddy &>/dev/null
-  systemctl restart caddy
-  wait_for_service caddy 10 2 || wrn "Caddy không start nhanh — kiểm tra: journalctl -u caddy -n 30"
+  ui_spin "Enabling Caddy service..." bash -c 'systemctl enable caddy &>/dev/null'
+  ui_spin "Restarting Caddy service..." systemctl restart caddy
+  wait_for_service caddy 10 2 || ui_warn "Caddy không start nhanh — kiểm tra: journalctl -u caddy -n 30"
   wait_for_https "$DOMAIN"
 }
 
@@ -872,7 +1137,7 @@ phase_self_install() {
   local tmp
   tmp=$(mktemp -t 9router-toolkit.XXXXXX)
   if $PIPED; then
-    inf "Downloading toolkit..."
+    ui_step "Downloading toolkit..."
     curl -fsSL "$INSTALL_URL" -o "$tmp" \
       || { wrn "Download failed; skipping self-install"; return 0; }
   else
@@ -882,7 +1147,7 @@ phase_self_install() {
   chmod 755 "$tmp"
   mv "$tmp" "$INSTALLED_BIN"
   compute_invoke_base
-  ok "Toolkit available as: ${B}sudo 9router${N}"
+  ui_ok "Toolkit available as: sudo 9router"
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -893,22 +1158,22 @@ phase_cleanup() {
   cd /
   rm -rf "$BUILD_DIR"
   [[ -n "${BUILD_LOG:-}" ]] && [[ -f "$BUILD_LOG" ]] && rm -f "$BUILD_LOG"
-  pnpm store prune &>/dev/null || true
-  apt-get autoremove --purge -y -qq
-  apt-get clean -qq
-  ok "Build artifacts removed"
+  rm -rf /tmp/next-* /tmp/turbopack-* /tmp/v8-compile-cache-* 2>/dev/null || true
+  ui_spin "Pruning pnpm store..." bash -c 'pnpm store prune &>/dev/null' || true
+  ui_spin "Cleaning npm cache..." bash -c 'npm cache clean --force &>/dev/null' || true
+  ui_spin "Removing unused apt packages..." apt-get autoremove --purge -y -qq
+  ui_spin "Cleaning apt cache..." apt-get clean -qq
+  ui_ok "Build artifacts removed"
 }
 
 # ══════════════════════════════════════════════════════════════════
 #  cmd_install / cmd_update — flow drivers
 # ══════════════════════════════════════════════════════════════════
 collect_install_inputs() {
-  echo -e "\n${W}[1/4] Domain (bỏ trống nếu chỉ dùng IP):${N}"
-  echo -e "      ${B}Ví dụ: llm.example.com${N}"
+  ui_panel "Setup wizard · 1/4" "Domain (bỏ trống nếu chỉ dùng IP)"$'\n'"Ví dụ: llm.example.com"
   DOMAIN=$(prompt_validated "Domain" "" valid_domain)
 
-  echo -e "\n${W}[2/4] Mật khẩu đăng nhập 9Router:${N}"
-  echo -e "      ${B}Enter = ChangeMe123!${N}"
+  ui_panel "Setup wizard · 2/4" "Mật khẩu đăng nhập 9Router"$'\n'"Enter = ChangeMe123!"
   while true; do
     INITIAL_PASSWORD=$(ask_secret "Password" "ChangeMe123!")
     env_value_ok "$INITIAL_PASSWORD" && break
@@ -916,12 +1181,10 @@ collect_install_inputs() {
   done
   [[ "$INITIAL_PASSWORD" == "ChangeMe123!" ]] && wrn "Đang dùng mật khẩu mặc định. Chỉ nên dùng để test, đổi ngay sau khi cài."
 
-  echo -e "\n${W}[3/4] Port ứng dụng:${N}"
-  echo -e "      ${B}Enter = 20128${N}"
+  ui_panel "Setup wizard · 3/4" "Port ứng dụng"$'\n'"Enter = 20128"
   APP_PORT=$(prompt_validated "Port" "20128" valid_port)
 
-  echo -e "\n${W}[4/4] Timezone:${N}"
-  echo -e "      ${B}Enter = Asia/Ho_Chi_Minh${N}"
+  ui_panel "Setup wizard · 4/4" "Timezone"$'\n'"Enter = Asia/Ho_Chi_Minh"
   while true; do
     TZ_SET=$(ask_str "Timezone" "Asia/Ho_Chi_Minh")
     valid_timezone "$TZ_SET" && break
@@ -936,14 +1199,10 @@ collect_install_inputs() {
 collect_update_inputs() {
   source_existing_env
   OLD_COMMIT=$(cat "$RUNTIME_DIR/.install-commit" 2>/dev/null || echo "không rõ")
-  echo -e "  Phiên bản hiện tại : ${Y}$OLD_COMMIT${N}"
-  [[ -n "$DOMAIN" ]] \
-    && echo -e "  Domain             : ${G}$DOMAIN${N}" \
-    || echo -e "  Domain             : ${Y}(IP only — http://$VPS_IP:$APP_PORT)${N}"
-  echo -e "  Port               : $APP_PORT"
-  echo -e "  Timezone           : $TZ_SET"
-  echo ""
-  echo -e "${W}Đổi mật khẩu đăng nhập (Enter để giữ nguyên):${N}"
+  local endpoint
+  [[ -n "$DOMAIN" ]] && endpoint="$DOMAIN" || endpoint="IP only · http://$VPS_IP:$APP_PORT"
+  ui_panel "Update settings" \
+    "Phiên bản hiện tại : $OLD_COMMIT"$'\n'"Domain             : $endpoint"$'\n'"Port               : $APP_PORT"$'\n'"Timezone           : $TZ_SET"$'\n\n'"Đổi mật khẩu đăng nhập (Enter để giữ nguyên)"
   local newp
   while true; do
     newp=$(ask_secret "Password mới (Enter giữ nguyên)" "")
@@ -955,18 +1214,14 @@ collect_update_inputs() {
 
 confirm_summary() {
   echo ""
-  hr
-  echo -e "  ${W}Xác nhận:${N}"
-  echo -e "  IP        : ${Y}$VPS_IP${N}"
+  local domain_line secrets_line
   [[ -n "$DOMAIN" ]] \
-    && echo -e "  Domain    : ${G}$DOMAIN${N}  ← Caddy + HTTPS tự động" \
-    || echo -e "  Domain    : ${Y}(IP only — http://$VPS_IP:$APP_PORT)${N}"
-  echo -e "  Password  : ${Y}(hidden)${N}"
-  echo -e "  Port      : $APP_PORT"
-  echo -e "  Timezone  : $TZ_SET"
-  echo -e "  Tier      : $TIER"
-  [[ "$INSTALL_MODE" == "update" ]] && echo -e "  Secrets   : ${G}giữ nguyên từ cài đặt trước${N}"
-  hr
+    && domain_line="$DOMAIN · Caddy + HTTPS tự động" \
+    || domain_line="IP only · http://$VPS_IP:$APP_PORT"
+  secrets_line=""
+  [[ "$INSTALL_MODE" == "update" ]] && secrets_line=$'\n'"Secrets   : giữ nguyên từ cài đặt trước"
+  ui_panel "Xác nhận" \
+    "IP        : $VPS_IP"$'\n'"Domain    : $domain_line"$'\n'"Password  : (hidden)"$'\n'"Port      : $APP_PORT"$'\n'"Timezone  : $TZ_SET"$'\n'"Tier      : $TIER$secrets_line"
   ask_confirm "Bắt đầu?" || { echo "Đã huỷ."; exit 0; }
 }
 
@@ -981,11 +1236,11 @@ cmd_install() {
 
   if is_installed; then
     INSTALL_MODE="update"
-    echo -e "\n  ${C}${W}9Router đã được cài. Chuyển sang chế độ Update.${N}\n"
+    ui_panel "Mode" "9Router đã được cài. Chuyển sang chế độ Update."
     collect_update_inputs
   else
     INSTALL_MODE="install"
-    echo -e "\n  ${Y}${W}Chế độ: Cài đặt mới${N}\n"
+    ui_panel "Mode" "Chế độ: Cài đặt mới"
     collect_install_inputs
   fi
 
@@ -993,7 +1248,7 @@ cmd_install() {
   confirm_summary
 
   START_TIME=$SECONDS
-  if timedatectl set-timezone "$TZ_SET" 2>/dev/null; then ok "Timezone → $TZ_SET"; else wrn "Không set được timezone"; fi
+  if timedatectl set-timezone "$TZ_SET" 2>/dev/null; then ui_ok "Timezone → $TZ_SET"; else ui_warn "Không set được timezone"; fi
 
   phase_optimize_system
   phase_zram
@@ -1089,7 +1344,7 @@ cmd_status() {
   detect_spec; classify_tier; show_spec
 
   if ! is_installed; then
-    wrn "9router chưa cài."
+    ui_warn "9router chưa cài."
     return 0
   fi
   source_existing_env
@@ -1103,13 +1358,24 @@ cmd_status() {
   fi
   echo ""
   sec "Resources"
-  echo -e "  RSS 9router : $(ps -o rss= -C node 2>/dev/null | head -1 | awk '{printf "%.0f MB",$1/1024}')"
-  echo -e "  RAM free    : $(free -m | awk '/Mem:/ {print $7" MB"}')"
-  echo -e "  Swap used   : $(free -m | awk '/Swap:/ {print $3"/"$2" MB"}')"
-  echo -e "  Disk free   : $(df -BG / | awk 'NR==2 {print $4}')"
-  hr
-  echo -e "  Logs   : ${B}$INVOKE_BASE logs${N}"
-  echo -e "  Doctor : ${B}$INVOKE_BASE doctor${N}"
+  if ui_has_gum; then
+    {
+      printf 'Metric\tValue\n'
+      printf 'RSS 9router\t%s\n' "$(ps -o rss= -C node 2>/dev/null | head -1 | awk '{printf "%.0f MB",$1/1024}')"
+      printf 'RAM free\t%s\n' "$(free -m | awk '/Mem:/ {print $7" MB"}')"
+      printf 'Swap used\t%s\n' "$(free -m | awk '/Swap:/ {print $3"/"$2" MB"}')"
+      printf 'Disk free\t%s\n' "$(df -BG / | awk 'NR==2 {print $4}')"
+    } | ui_table --separator $'\t'
+    ui_panel "Next commands" "Logs   : $INVOKE_BASE logs"$'\n'"Doctor : $INVOKE_BASE doctor"
+  else
+    echo -e "  RSS 9router : $(ps -o rss= -C node 2>/dev/null | head -1 | awk '{printf "%.0f MB",$1/1024}')"
+    echo -e "  RAM free    : $(free -m | awk '/Mem:/ {print $7" MB"}')"
+    echo -e "  Swap used   : $(free -m | awk '/Swap:/ {print $3"/"$2" MB"}')"
+    echo -e "  Disk free   : $(df -BG / | awk 'NR==2 {print $4}')"
+    hr
+    echo -e "  Logs   : ${B}$INVOKE_BASE logs${N}"
+    echo -e "  Doctor : ${B}$INVOKE_BASE doctor${N}"
+  fi
 }
 
 cmd_logs() {
@@ -1298,26 +1564,48 @@ doc_check_memory_cap() {
 
 doc_render_text() {
   echo ""
-  hr
-  echo -e "  ${W}9router doctor — tier=$TIER${N}"
-  hr
   local n=0 ok_n=0 warn_n=0 fail_n=0
-  for f in "${DOCTOR_FINDINGS[@]}"; do
-    n=$((n+1))
-    local sev name msg fix
-    sev=$(echo "$f" | awk -F'|' '{print $1}')
-    name=$(echo "$f" | awk -F'|' '{print $2}')
-    msg=$(echo "$f" | awk -F'|' '{print $3}')
-    fix=$(echo "$f" | awk -F'|' '{print $4}')
-    case "$sev" in
-      OK)   echo -e "  ${G}[OK]${N}   $name — $msg"; ok_n=$((ok_n+1)) ;;
-      WARN) echo -e "  ${Y}[WARN]${N} $name — $msg"; [[ -n "$fix" ]] && echo -e "         ${B}fix:${N} $fix"; warn_n=$((warn_n+1)) ;;
-      FAIL) echo -e "  ${R}[FAIL]${N} $name — $msg"; [[ -n "$fix" ]] && echo -e "         ${B}fix:${N} $fix"; fail_n=$((fail_n+1)) ;;
-    esac
-  done
-  hr
-  echo -e "  Total: $n  ·  ${G}OK $ok_n${N}  ·  ${Y}WARN $warn_n${N}  ·  ${R}FAIL $fail_n${N}"
-  hr
+  if ui_has_gum; then
+    local rows="" sev name msg fix
+    for f in "${DOCTOR_FINDINGS[@]}"; do
+      n=$((n+1))
+      sev=$(echo "$f" | awk -F'|' '{print $1}')
+      name=$(echo "$f" | awk -F'|' '{print $2}')
+      msg=$(echo "$f" | awk -F'|' '{print $3}')
+      fix=$(echo "$f" | awk -F'|' '{print $4}')
+      case "$sev" in
+        OK) ok_n=$((ok_n+1)) ;;
+        WARN) warn_n=$((warn_n+1)) ;;
+        FAIL) fail_n=$((fail_n+1)) ;;
+      esac
+      rows+="$sev"$'\t'"$name"$'\t'"$msg"$'\t'"$fix"$'\n'
+    done
+    {
+      printf 'Severity\tCheck\tMessage\tFix\n'
+      printf '%s' "$rows"
+    } | ui_table --separator $'\t'
+    ui_panel "Doctor summary" "Total: $n  ·  OK $ok_n  ·  WARN $warn_n  ·  FAIL $fail_n"$'\n'"Tier : $TIER"
+  else
+    hr
+    echo -e "  ${W}9router doctor — tier=$TIER${N}"
+    hr
+    for f in "${DOCTOR_FINDINGS[@]}"; do
+      n=$((n+1))
+      local sev name msg fix
+      sev=$(echo "$f" | awk -F'|' '{print $1}')
+      name=$(echo "$f" | awk -F'|' '{print $2}')
+      msg=$(echo "$f" | awk -F'|' '{print $3}')
+      fix=$(echo "$f" | awk -F'|' '{print $4}')
+      case "$sev" in
+        OK)   echo -e "  ${G}[OK]${N}   $name — $msg"; ok_n=$((ok_n+1)) ;;
+        WARN) echo -e "  ${Y}[WARN]${N} $name — $msg"; [[ -n "$fix" ]] && echo -e "         ${B}fix:${N} $fix"; warn_n=$((warn_n+1)) ;;
+        FAIL) echo -e "  ${R}[FAIL]${N} $name — $msg"; [[ -n "$fix" ]] && echo -e "         ${B}fix:${N} $fix"; fail_n=$((fail_n+1)) ;;
+      esac
+    done
+    hr
+    echo -e "  Total: $n  ·  ${G}OK $ok_n${N}  ·  ${Y}WARN $warn_n${N}  ·  ${R}FAIL $fail_n${N}"
+    hr
+  fi
 }
 
 doc_render_json() {
@@ -1347,7 +1635,7 @@ doc_offer_fixes() {
     fix=$(echo "$f" | awk -F'|' '{print $4}')
     [[ "$sev" != "OK" ]] && [[ -n "$fix" ]] && fixable+=("$f")
   done
-  [[ ${#fixable[@]} -eq 0 ]] && { ok "Không có gì cần fix"; return; }
+  [[ ${#fixable[@]} -eq 0 ]] && { ui_ok "Không có gì cần fix"; return; }
 
   echo ""
   if ask_confirm "Áp dụng tất cả ${#fixable[@]} fix theo thứ tự?"; then
@@ -1355,23 +1643,21 @@ doc_offer_fixes() {
       local name fix
       name=$(echo "$f" | awk -F'|' '{print $2}')
       fix=$(echo "$f" | awk -F'|' '{print $4}')
-      inf "→ $name: $fix"
-      bash -c "$fix" || wrn "fix '$name' returned non-zero"
+      ui_step "$name: $fix"
+      bash -c "$fix" || ui_warn "fix '$name' returned non-zero"
     done
-    ok "All fixes attempted. Re-run doctor để verify."
+    ui_ok "All fixes attempted. Re-run doctor để verify."
   else
     for f in "${fixable[@]}"; do
       local name msg fix
       name=$(echo "$f" | awk -F'|' '{print $2}')
       msg=$(echo "$f" | awk -F'|' '{print $3}')
       fix=$(echo "$f" | awk -F'|' '{print $4}')
-      echo ""
-      echo -e "  ${W}$name${N} — $msg"
-      echo -e "  fix: ${B}$fix${N}"
+      ui_panel "$name" "$msg"$'\n'"fix: $fix"
       if ask_confirm "Apply this fix?"; then
-        bash -c "$fix" || wrn "fix '$name' returned non-zero"
+        bash -c "$fix" || ui_warn "fix '$name' returned non-zero"
       else
-        inf "Skipped"
+        ui_step "Skipped"
       fi
     done
   fi
@@ -1418,40 +1704,47 @@ cmd_doctor() {
 print_done_summary() {
   local elapsed=$(( SECONDS - START_TIME ))
   local elapsed_fmt; elapsed_fmt=$(printf '%dm%02ds' $((elapsed/60)) $((elapsed%60)))
+  local done_title
+  [[ "$INSTALL_MODE" == "update" ]] && done_title="Cập nhật hoàn tất! ($elapsed_fmt)" || done_title="Cài đặt hoàn tất! ($elapsed_fmt)"
   echo ""
-  hr
-  echo -e "${G}${W}"
-  if [[ "$INSTALL_MODE" == "update" ]]; then
-    echo "   ✅  Cập nhật hoàn tất! (${elapsed_fmt})"
+  if ui_has_gum; then
+    local build_lines=""
+    if [[ "$INSTALL_MODE" == "update" ]]; then
+      build_lines=$'\n'"Build cũ     : ${OLD_COMMIT:-không rõ}"$'\n'"Build mới    : $NEW_COMMIT"
+    fi
+    ui_panel "✔ $done_title" \
+      "URL          : $BASE_URL"$'\n'"Password     : $INITIAL_PASSWORD"$'\n'"Tier         : $TIER$build_lines"$'\n\n'"Config       : $ENV_FILE"$'\n'"Runtime      : $RUNTIME_DIR"$'\n'"Previous     : $PREVIOUS_DIR (for rollback)"$'\n'"Data         : $DATA_DIR"$'\n\n'"Status       : $INVOKE_BASE status"$'\n'"Doctor       : $INVOKE_BASE doctor"$'\n'"Logs         : $INVOKE_BASE logs"$'\n'"Update       : $INVOKE_BASE update"$'\n'"Rollback     : $INVOKE_BASE rollback"$'\n'"Uninstall    : $INVOKE_BASE uninstall"
   else
-    echo "   ✅  Cài đặt hoàn tất! (${elapsed_fmt})"
+    hr
+    echo -e "${G}${W}"
+    echo "   ✅  $done_title"
+    echo -e "${N}"
+    hr
+    echo -e "  ${W}9Router${N}"
+    echo -e "  URL          : ${C}${W}$BASE_URL${N}"
+    echo -e "  Password     : ${Y}$INITIAL_PASSWORD${N}"
+    echo -e "  Tier         : $TIER"
+    if [[ "$INSTALL_MODE" == "update" ]]; then
+      echo -e "  Build cũ     : ${Y}${OLD_COMMIT:-không rõ}${N}"
+      echo -e "  Build mới    : ${G}$NEW_COMMIT${N}"
+    fi
+    echo ""
+    echo -e "  ${W}Files${N}"
+    echo -e "  Config       : $ENV_FILE"
+    echo -e "  Runtime      : $RUNTIME_DIR"
+    echo -e "  Previous     : $PREVIOUS_DIR (for rollback)"
+    echo -e "  Data         : $DATA_DIR"
+    echo ""
+    echo -e "  ${W}Commands${N}"
+    echo -e "  Status       : ${B}$INVOKE_BASE status${N}"
+    echo -e "  Doctor       : ${B}$INVOKE_BASE doctor${N}     (chạy hàng tuần)"
+    echo -e "  Logs         : ${B}$INVOKE_BASE logs${N}"
+    echo -e "  Update       : ${B}$INVOKE_BASE update${N}"
+    echo -e "  Rollback     : ${B}$INVOKE_BASE rollback${N}"
+    echo -e "  Uninstall    : ${B}$INVOKE_BASE uninstall${N}"
+    hr
+    echo ""
   fi
-  echo -e "${N}"
-  hr
-  echo -e "  ${W}9Router${N}"
-  echo -e "  URL          : ${C}${W}$BASE_URL${N}"
-  echo -e "  Password     : ${Y}$INITIAL_PASSWORD${N}"
-  echo -e "  Tier         : $TIER"
-  if [[ "$INSTALL_MODE" == "update" ]]; then
-    echo -e "  Build cũ     : ${Y}${OLD_COMMIT:-không rõ}${N}"
-    echo -e "  Build mới    : ${G}$NEW_COMMIT${N}"
-  fi
-  echo ""
-  echo -e "  ${W}Files${N}"
-  echo -e "  Config       : $ENV_FILE"
-  echo -e "  Runtime      : $RUNTIME_DIR"
-  echo -e "  Previous     : $PREVIOUS_DIR (for rollback)"
-  echo -e "  Data         : $DATA_DIR"
-  echo ""
-  echo -e "  ${W}Commands${N}"
-  echo -e "  Status       : ${B}$INVOKE_BASE status${N}"
-  echo -e "  Doctor       : ${B}$INVOKE_BASE doctor${N}     (chạy hàng tuần)"
-  echo -e "  Logs         : ${B}$INVOKE_BASE logs${N}"
-  echo -e "  Update       : ${B}$INVOKE_BASE update${N}"
-  echo -e "  Rollback     : ${B}$INVOKE_BASE rollback${N}"
-  echo -e "  Uninstall    : ${B}$INVOKE_BASE uninstall${N}"
-  hr
-  echo ""
 
   if [[ "$INITIAL_PASSWORD" == "ChangeMe123!" ]]; then
     echo -e "${Y}${W}  ⚠  Đang dùng mật khẩu mặc định! Đổi ngay:${N}"
@@ -1470,9 +1763,7 @@ interactive_menu() {
 
   local installed_label="not installed"
   is_installed && installed_label="installed (commit $(cat $RUNTIME_DIR/.install-commit 2>/dev/null || echo '?'))"
-  echo -e "  Status    : $installed_label"
-  hr
-  echo ""
+  ui_panel "Toolkit status" "Status : $installed_label"$'\n'"Tier   : $TIER"$'\n'"IP     : $VPS_IP"
 
   if ! command -v gum &>/dev/null; then
     if [[ $EUID -eq 0 ]] && [[ -f /etc/debian_version ]]; then
@@ -1488,32 +1779,46 @@ interactive_menu() {
 
   local choice
   if is_installed; then
-    choice=$(gum choose --header "9router toolkit (tier=$TIER)" \
-      "Update (pull latest + redeploy)" \
-      "Doctor (health check)" \
-      "Status (one-screen summary)" \
-      "Logs (follow service)" \
-      "Tune (re-apply tier tuning)" \
-      "Rollback (restore previous build)" \
-      "Uninstall (data preserved)" \
+    ui_hint
+    choice=$(gum choose \
+      --header "9router toolkit · installed · tier=$TIER" \
+      --height 9 \
+      --cursor "➤ " \
+      --cursor.foreground "$UI_ACCENT" \
+      --selected.foreground "$UI_ACCENT" \
+      --header.foreground "$UI_PURPLE" \
+      "⬆ Update (pull latest + redeploy)" \
+      "◆ Doctor (health check)" \
+      "● Status (one-screen summary)" \
+      "▣ Logs (follow service)" \
+      "◈ Tune (re-apply tier tuning)" \
+      "↩ Rollback (restore previous build)" \
+      "✖ Uninstall (data preserved)" \
       "Exit" </dev/tty)
   else
-    choice=$(gum choose --header "9router toolkit (tier=$TIER)" \
-      "Install (fresh install)" \
-      "Doctor (health check)" \
-      "Status (system spec only)" \
+    ui_hint
+    choice=$(gum choose \
+      --header "9router toolkit · not installed · tier=$TIER" \
+      --height 5 \
+      --cursor "➤ " \
+      --cursor.foreground "$UI_ACCENT" \
+      --selected.foreground "$UI_ACCENT" \
+      --header.foreground "$UI_PURPLE" \
+      "● Install (fresh install)" \
+      "◆ Doctor (health check)" \
+      "● Status (system spec only)" \
       "Exit" </dev/tty)
   fi
 
   case "$choice" in
-    "Install"*)   cmd_install ;;
-    "Update"*)    cmd_update ;;
-    "Doctor"*)    cmd_doctor ;;
-    "Status"*)    cmd_status ;;
-    "Logs"*)      cmd_logs ;;
-    "Tune"*)      cmd_tune ;;
-    "Rollback"*)  cmd_rollback ;;
-    "Uninstall"*) cmd_uninstall ;;
+    *"Install"*)   cmd_install ;;
+    *"Update"*)    cmd_update ;;
+    *"Doctor"*)    cmd_doctor ;;
+    *"Status"*)    cmd_status ;;
+    *"Logs"*)      cmd_logs ;;
+    *"Tune"*)      cmd_tune ;;
+    *"Rollback"*)  cmd_rollback ;;
+    *"Uninstall"*) cmd_uninstall ;;
     *)            exit 0 ;;
   esac
 }
