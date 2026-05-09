@@ -37,6 +37,8 @@ BUILD_DIR="/opt/9router-build"
 RUNTIME_DIR="/opt/9router"
 PREVIOUS_DIR="/opt/9router-previous"
 DATA_DIR="/var/lib/9router"
+SERVICE_USER="router9"
+SERVICE_GROUP="router9"
 ENV_FILE="/etc/9router.env"
 ENV_BACKUP_GLOB="/etc/9router.env.bak.*"
 SERVICE_FILE="/etc/systemd/system/9router.service"
@@ -57,6 +59,10 @@ SCRIPT_NAME="$(basename "$0")"
 PIPED=false
 if [[ "$SCRIPT_NAME" == "bash" ]] || [[ "$SCRIPT_NAME" == "sh" ]] || [[ "$0" =~ ^/dev/fd/ ]]; then
   PIPED=true
+fi
+if [[ -n "${NINE_ROUTER_RELAUNCHED_FROM:-}" ]]; then
+  PIPED=false
+  trap 'rm -f "$NINE_ROUTER_RELAUNCHED_FROM"' EXIT
 fi
 
 # Recompute after self-install so printed help reflects the installed binary.
@@ -263,6 +269,16 @@ ensure_essentials() {
   ok "Essential tools ready"
 }
 
+ensure_service_user() {
+  if ! getent group "$SERVICE_GROUP" &>/dev/null; then
+    groupadd --system "$SERVICE_GROUP"
+  fi
+  if ! id -u "$SERVICE_USER" &>/dev/null; then
+    useradd --system --gid "$SERVICE_GROUP" --home-dir "$DATA_DIR" \
+      --shell /usr/sbin/nologin "$SERVICE_USER"
+  fi
+}
+
 wait_for_service() {
   local svc="$1" max="${2:-15}" interval="${3:-2}" attempt=0
   inf "Chờ $svc khởi động..."
@@ -301,7 +317,33 @@ backup_env_file() {
   ls -1t $ENV_BACKUP_GLOB 2>/dev/null | tail -n +6 | xargs -r rm -f
 }
 
+env_value_ok() {
+  [[ "$1" =~ ^[A-Za-z0-9_@%+=:,./!-]*$ ]]
+}
+
+env_file_get() {
+  local key="$1" line val
+  [[ -f "$ENV_FILE" ]] || return 1
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" == "$key="* ]] || continue
+    val="${line#*=}"
+    if [[ "$val" == \"*\" && "$val" == *\" ]]; then
+      val="${val:1:${#val}-2}"
+    elif [[ "$val" == \'*\' && "$val" == *\' ]]; then
+      val="${val:1:${#val}-2}"
+    fi
+    printf '%s' "$val"
+    return 0
+  done < "$ENV_FILE"
+  return 1
+}
+
 write_env_file() {
+  local name value
+  for name in JWT_SECRET INITIAL_PASSWORD DATA_DIR APP_PORT BASE_URL API_KEY_SECRET MACHINE_ID_SALT; do
+    value="${!name}"
+    env_value_ok "$value" || die "Invalid character in $name. Use letters, numbers, and common URL/password symbols only."
+  done
   cat > "$ENV_FILE" << EOF
 JWT_SECRET=$JWT_SECRET
 INITIAL_PASSWORD=$INITIAL_PASSWORD
@@ -318,18 +360,20 @@ EOF
 }
 
 source_existing_env() {
-  set -a
-  # shellcheck source=/dev/null
-  source "$ENV_FILE"
-  set +a
-  APP_PORT="${PORT:-20128}"
+  JWT_SECRET=$(env_file_get JWT_SECRET || openssl rand -hex 32)
+  INITIAL_PASSWORD=$(env_file_get INITIAL_PASSWORD || printf '%s' "ChangeMe123!")
+  API_KEY_SECRET=$(env_file_get API_KEY_SECRET || openssl rand -hex 32)
+  MACHINE_ID_SALT=$(env_file_get MACHINE_ID_SALT || openssl rand -hex 16)
+  APP_PORT=$(env_file_get PORT || printf '%s' "20128")
+  valid_port "$APP_PORT" || die "Invalid PORT in $ENV_FILE: $APP_PORT"
   TZ_SET=$(timedatectl show -p Timezone --value 2>/dev/null || echo "Asia/Ho_Chi_Minh")
-  if [[ "${NEXT_PUBLIC_BASE_URL:-}" == https://* ]]; then
-    DOMAIN="${NEXT_PUBLIC_BASE_URL#https://}"
+  BASE_URL=$(env_file_get NEXT_PUBLIC_BASE_URL || printf '%s' "")
+  if [[ "$BASE_URL" == https://* ]]; then
+    DOMAIN="${BASE_URL#https://}"
+    valid_domain "$DOMAIN" || die "Invalid NEXT_PUBLIC_BASE_URL domain in $ENV_FILE: $BASE_URL"
   else
     DOMAIN=""
   fi
-  BASE_URL="${NEXT_PUBLIC_BASE_URL:-}"
 }
 
 is_installed() {
@@ -355,7 +399,8 @@ ask_secret() {
   if command -v gum &>/dev/null; then
     out=$(gum input --password --prompt "  → $label: " --placeholder "$default" </dev/tty)
   else
-    read -rp "  → $label [$default]: " out </dev/tty
+    read -rsp "  → $label [$default]: " out </dev/tty
+    echo >/dev/tty
   fi
   out="${out:-$default}"
   printf '%s' "$out"
@@ -369,6 +414,38 @@ ask_confirm() {
     read -rp "$label [y/N] " r </dev/tty
     [[ "$r" =~ ^[Yy]$ ]]
   fi
+}
+
+valid_domain() {
+  local domain="$1"
+  [[ -z "$domain" ]] && return 0
+  [[ ${#domain} -le 253 ]] || return 1
+  [[ "$domain" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$ ]]
+}
+
+valid_port() {
+  local port="$1"
+  [[ "$port" =~ ^[0-9]+$ ]] || return 1
+  [[ "$port" -ge 1024 && "$port" -le 65535 && "$port" -ne 80 && "$port" -ne 443 ]]
+}
+
+valid_timezone() {
+  local timezone="$1"
+  [[ -n "$timezone" ]] || return 1
+  timedatectl list-timezones 2>/dev/null | grep -Fxq "$timezone"
+}
+
+prompt_validated() {
+  local label="$1" default="$2" validator="$3" value
+  while true; do
+    value=$(ask_str "$label" "$default")
+    value="${value// /}"
+    if "$validator" "$value"; then
+      printf '%s' "$value"
+      return 0
+    fi
+    wrn "$label không hợp lệ. Vui lòng nhập lại."
+  done
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -633,6 +710,7 @@ build_failure_recover() {
 # ══════════════════════════════════════════════════════════════════
 phase_deploy_runtime() {
   sec "Deploy runtime"
+  ensure_service_user
 
   # Snapshot current runtime for rollback
   if [[ -d "$RUNTIME_DIR" ]] && [[ -f "$RUNTIME_DIR/server.js" ]]; then
@@ -642,8 +720,7 @@ phase_deploy_runtime() {
     ok "Previous build saved"
   fi
 
-  mkdir -p "$RUNTIME_DIR/.next"
-  [[ "$INSTALL_MODE" == "install" ]] && mkdir -p "$DATA_DIR"
+  mkdir -p "$RUNTIME_DIR/.next" "$DATA_DIR"
 
   if command -v rsync &>/dev/null; then
     rsync -a --delete .next/standalone/ "$RUNTIME_DIR/"
@@ -656,6 +733,7 @@ phase_deploy_runtime() {
   fi
 
   git -C "$BUILD_DIR" rev-parse --short HEAD > "$RUNTIME_DIR/.install-commit" 2>/dev/null || true
+  chown -R "$SERVICE_USER:$SERVICE_GROUP" "$RUNTIME_DIR" "$DATA_DIR"
   ok "Runtime → $RUNTIME_DIR"
 }
 
@@ -682,7 +760,11 @@ EnvironmentFile=$ENV_FILE
 ExecStart=/usr/bin/node $RUNTIME_DIR/server.js
 Restart=on-failure
 RestartSec=5
-User=root
+User=$SERVICE_USER
+Group=$SERVICE_GROUP
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
 
 # Resource limits
 LimitNOFILE=65535
@@ -753,14 +835,8 @@ phase_caddy() {
   fi
 
   mkdir -p /etc/caddy
-  local needs_update=false
-  if [[ ! -f "$CADDYFILE" ]]; then
-    needs_update=true
-  elif ! grep -qE "^${DOMAIN} \{" "$CADDYFILE" 2>/dev/null; then
-    needs_update=true
-  fi
-  if $needs_update; then
-    cat > "$CADDYFILE" << EOF
+  [[ -f "$CADDYFILE" ]] && cp -a "$CADDYFILE" "$CADDYFILE.bak.$(date +%s)"
+  cat > "$CADDYFILE" << EOF
 $DOMAIN {
     encode gzip
     reverse_proxy 127.0.0.1:$APP_PORT {
@@ -771,10 +847,17 @@ $DOMAIN {
     }
 }
 EOF
-    ok "Caddyfile → $CADDYFILE"
-  else
-    ok "Caddyfile unchanged (domain: $DOMAIN)"
+  if ! caddy validate --config "$CADDYFILE" &>/dev/null; then
+    local latest_backup
+    latest_backup=$(ls -1t "$CADDYFILE".bak.* 2>/dev/null | head -1 || true)
+    if [[ -n "$latest_backup" ]]; then
+      cp -a "$latest_backup" "$CADDYFILE"
+    else
+      rm -f "$CADDYFILE"
+    fi
+    die "Caddyfile invalid. Restored previous config if available."
   fi
+  ok "Caddyfile → $CADDYFILE"
 
   systemctl enable caddy &>/dev/null
   systemctl restart caddy
@@ -787,15 +870,18 @@ EOF
 # ══════════════════════════════════════════════════════════════════
 phase_self_install() {
   sec "Install toolkit → $INSTALLED_BIN"
+  local tmp
+  tmp=$(mktemp -t 9router-toolkit.XXXXXX)
   if $PIPED; then
     inf "Downloading toolkit..."
-    curl -fsSL "$INSTALL_URL" -o "$INSTALLED_BIN" \
+    curl -fsSL "$INSTALL_URL" -o "$tmp" \
       || { wrn "Download failed; skipping self-install"; return 0; }
   else
-    cp "$SCRIPT_PATH" "$INSTALLED_BIN" \
+    cp "$SCRIPT_PATH" "$tmp" \
       || { wrn "Copy failed; skipping self-install"; return 0; }
   fi
-  chmod +x "$INSTALLED_BIN"
+  chmod 755 "$tmp"
+  mv "$tmp" "$INSTALLED_BIN"
   compute_invoke_base
   ok "Toolkit available as: ${B}sudo 9router${N}"
 }
@@ -820,20 +906,28 @@ phase_cleanup() {
 collect_install_inputs() {
   echo -e "\n${W}[1/4] Domain (bỏ trống nếu chỉ dùng IP):${N}"
   echo -e "      ${B}Ví dụ: llm.example.com${N}"
-  DOMAIN=$(ask_str "Domain" "")
-  DOMAIN="${DOMAIN// /}"
+  DOMAIN=$(prompt_validated "Domain" "" valid_domain)
 
   echo -e "\n${W}[2/4] Mật khẩu đăng nhập 9Router:${N}"
   echo -e "      ${B}Enter = ChangeMe123!${N}"
-  INITIAL_PASSWORD=$(ask_str "Password" "ChangeMe123!")
+  while true; do
+    INITIAL_PASSWORD=$(ask_secret "Password" "ChangeMe123!")
+    env_value_ok "$INITIAL_PASSWORD" && break
+    wrn "Password chỉ được dùng chữ, số và các ký tự: _ @ % + = : , . / ! -"
+  done
+  [[ "$INITIAL_PASSWORD" == "ChangeMe123!" ]] && wrn "Đang dùng mật khẩu mặc định. Chỉ nên dùng để test, đổi ngay sau khi cài."
 
   echo -e "\n${W}[3/4] Port ứng dụng:${N}"
   echo -e "      ${B}Enter = 20128${N}"
-  APP_PORT=$(ask_str "Port" "20128")
+  APP_PORT=$(prompt_validated "Port" "20128" valid_port)
 
   echo -e "\n${W}[4/4] Timezone:${N}"
   echo -e "      ${B}Enter = Asia/Ho_Chi_Minh${N}"
-  TZ_SET=$(ask_str "Timezone" "Asia/Ho_Chi_Minh")
+  while true; do
+    TZ_SET=$(ask_str "Timezone" "Asia/Ho_Chi_Minh")
+    valid_timezone "$TZ_SET" && break
+    wrn "Timezone không hợp lệ. Ví dụ hợp lệ: Asia/Ho_Chi_Minh"
+  done
 
   JWT_SECRET=$(openssl rand -hex 32)
   API_KEY_SECRET=$(openssl rand -hex 32)
@@ -852,8 +946,12 @@ collect_update_inputs() {
   echo ""
   echo -e "${W}Đổi mật khẩu đăng nhập (Enter để giữ nguyên):${N}"
   local newp
-  newp=$(ask_str "Password mới (Enter giữ nguyên)" "")
-  [[ -n "$newp" ]] && INITIAL_PASSWORD="$newp"
+  while true; do
+    newp=$(ask_secret "Password mới (Enter giữ nguyên)" "")
+    [[ -z "$newp" ]] && break
+    env_value_ok "$newp" && { INITIAL_PASSWORD="$newp"; break; }
+    wrn "Password chỉ được dùng chữ, số và các ký tự: _ @ % + = : , . / ! -"
+  done
 }
 
 confirm_summary() {
@@ -864,7 +962,7 @@ confirm_summary() {
   [[ -n "$DOMAIN" ]] \
     && echo -e "  Domain    : ${G}$DOMAIN${N}  ← Caddy + HTTPS tự động" \
     || echo -e "  Domain    : ${Y}(IP only — http://$VPS_IP:$APP_PORT)${N}"
-  echo -e "  Password  : ${Y}$INITIAL_PASSWORD${N}"
+  echo -e "  Password  : ${Y}(hidden)${N}"
   echo -e "  Port      : $APP_PORT"
   echo -e "  Timezone  : $TZ_SET"
   echo -e "  Tier      : $TIER"
@@ -1425,6 +1523,15 @@ interactive_menu() {
 #  Dispatcher
 # ══════════════════════════════════════════════════════════════════
 main() {
+  if $PIPED; then
+    local tmp
+    tmp=$(mktemp -t setup_9router.XXXXXX)
+    curl -fsSL "$INSTALL_URL" -o "$tmp"
+    chmod +x "$tmp"
+    export NINE_ROUTER_RELAUNCHED_FROM="$tmp"
+    exec "$tmp" "$@"
+  fi
+
   case "${1:-menu}" in
     install)    shift; cmd_install "$@" ;;
     update)     shift; cmd_update "$@" ;;
