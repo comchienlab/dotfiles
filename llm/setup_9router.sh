@@ -399,12 +399,8 @@ ask_str() {
 
 ask_secret() {
   local label="$1" default="${2:-}" out
-  if command -v gum &>/dev/null; then
-    out=$(gum input --password --prompt "  → $label: " </dev/tty)
-  else
-    read -rsp "  → $label [$default]: " out </dev/tty
-    echo >/dev/tty
-  fi
+  read -rsp "  → $label [$default]: " out </dev/tty
+  echo >/dev/tty
   out="${out:-$default}"
   printf '%s' "$out"
 }
