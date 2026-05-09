@@ -245,6 +245,9 @@ ensure_gum() {
   command -v gum &>/dev/null && return 0
   inf "Cài gum (interactive UI)..."
   if [[ -f /etc/debian_version ]]; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -qq
+    apt-get install -y -qq curl ca-certificates gnupg
     mkdir -p /etc/apt/keyrings
     curl -fsSL https://repo.charm.sh/apt/gpg.key \
       | gpg --dearmor -o /etc/apt/keyrings/charm.gpg 2>/dev/null
