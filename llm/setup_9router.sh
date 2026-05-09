@@ -143,12 +143,64 @@ ui_spin() {
   fi
 }
 
+# ── Error visibility / command logging ──────────────────────────────
+SETUP_LOG="${SETUP_LOG:-/tmp/9router-setup-$(date +%Y%m%d-%H%M%S)-$$.log}"
+LAST_STEP="startup"
+
+on_error() {
+  local rc="$1" line="$2" cmd="$3"
+  ui_error "Failed during: $LAST_STEP"
+  ui_error "Exit code $rc at line $line: $cmd"
+  ui_error "Full log: $SETUP_LOG"
+  if [[ -f "$SETUP_LOG" ]]; then
+    echo "" >&2
+    echo "Last log lines:" >&2
+    tail -n 40 "$SETUP_LOG" >&2 || true
+  fi
+  exit "$rc"
+}
+trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
+
+run_logged() {
+  local title="$1"; shift
+  LAST_STEP="$title"
+  printf '\n[%s] %s\n' "$(date -Iseconds)" "$title" >>"$SETUP_LOG" 2>/dev/null || true
+  ui_step "$title"
+  if "$@" >>"$SETUP_LOG" 2>&1; then
+    ui_ok "$title"
+  else
+    local rc=$?
+    ui_error "$title failed (exit $rc). Log: $SETUP_LOG"
+    tail -n 30 "$SETUP_LOG" >&2 || true
+    return "$rc"
+  fi
+}
+
+run_logged_shell() {
+  local title="$1" script="$2"
+  shift 2
+  LAST_STEP="$title"
+  printf '\n[%s] %s\n' "$(date -Iseconds)" "$title" >>"$SETUP_LOG" 2>/dev/null || true
+  ui_step "$title"
+  if bash -o pipefail -c "$script" "$@" >>"$SETUP_LOG" 2>&1; then
+    ui_ok "$title"
+  else
+    local rc=$?
+    ui_error "$title failed (exit $rc). Log: $SETUP_LOG"
+    tail -n 30 "$SETUP_LOG" >&2 || true
+    return "$rc"
+  fi
+}
+
 # ── Path constants ──────────────────────────────────────────────────
 REPO_URL="https://github.com/decolua/9router.git"
+NPM_PACKAGE="9router"
 BUILD_DIR="/opt/9router-build"
+STAGE_DIR="/opt/9router-stage"
 RUNTIME_DIR="/opt/9router"
 PREVIOUS_DIR="/opt/9router-previous"
 DATA_DIR="/var/lib/9router"
+RUNTIME_DEPS_DIR="$DATA_DIR/runtime"
 SERVICE_USER="router9"
 SERVICE_GROUP="router9"
 ENV_FILE="/etc/9router.env"
@@ -224,6 +276,7 @@ detect_spec() {
   TOTAL_RAM=$(awk '/MemTotal/ {printf "%.0f", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
   CPU_CORES=$(nproc 2>/dev/null || echo 1)
   TOTAL_DISK=$(df -BG / 2>/dev/null | awk 'NR==2 {print $4}' | tr -d 'G' || echo 0)
+  # shellcheck source=/dev/null
   OS_INFO=$(. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME" || echo "Unknown")
   KERNEL=$(uname -r 2>/dev/null || echo "?")
   VPS_IP=$(curl -fsSL --max-time 5 ifconfig.me 2>/dev/null \
@@ -372,6 +425,15 @@ tier_node_mem() {
     echo 1536
   fi
 }
+tier_runtime_node_mem() {
+  if [[ $TOTAL_RAM -le 1024 ]]; then
+    echo 512
+  elif [[ $TOTAL_RAM -le 2048 ]]; then
+    echo 768
+  else
+    echo 1024
+  fi
+}
 
 build_available_mb() {
   awk '/MemAvailable/ {a=$2} /SwapFree/ {s=$2} END{printf "%.0f",(a+s)/1024}' /proc/meminfo 2>/dev/null || echo 0
@@ -413,7 +475,7 @@ ensure_essentials() {
     curl wget git ca-certificates openssl gnupg \
     htop vim net-tools unzip lsof rsync \
     ufw fail2ban \
-    build-essential jq
+    build-essential python3 jq
   ui_ok "Essential tools ready"
 }
 
@@ -468,7 +530,6 @@ clean_build_caches() {
     "$BUILD_DIR/.tmp" \
     "$BUILD_DIR"/tsconfig.tsbuildinfo \
     "$BUILD_DIR"/.eslintcache 2>/dev/null || true
-  ui_spin "Pruning pnpm store..." bash -c 'pnpm store prune &>/dev/null' || true
   if [[ "$scope" == "retry" ]]; then
     rm -rf /tmp/next-* /tmp/turbopack-* /tmp/v8-compile-cache-* 2>/dev/null || true
     npm cache clean --force &>/dev/null || true
@@ -487,13 +548,7 @@ show_build_memory_plan() {
 }
 
 remove_webpack_forced_builds() {
-  local forced_build="next build --""webpack"
-  if [[ -f package.json ]] && grep -q "$forced_build" package.json; then
-    perl -0pi -e 's/next build --\x77ebpack/next build/g' package.json
-    ui_ok "Removed forced webpack from Next.js build scripts"
-  else
-    ui_ok "No forced webpack build scripts found"
-  fi
+  ui_ok "Keeping upstream webpack build script for Next.js compatibility"
 }
 
 ensure_next_standalone_output() {
@@ -536,6 +591,36 @@ EOF
   grep -Eq "output[[:space:]]*:[[:space:]]*['\"]standalone['\"]" "$cfg" \
     || die "Failed to enable output: 'standalone' in $cfg"
   ui_ok "Enabled Next.js standalone output in $cfg"
+}
+
+patch_next_low_memory_config() {
+  local cfg=""
+  for candidate in next.config.js next.config.mjs next.config.cjs next.config.ts next.config.mts; do
+    if [[ -f "$candidate" ]]; then
+      cfg="$candidate"
+      break
+    fi
+  done
+  [[ -n "$cfg" ]] || return 0
+
+  if ! grep -Eq "productionBrowserSourceMaps[[:space:]]*:[[:space:]]*false" "$cfg"; then
+    perl -0pi -e "s/(const[[:space:]]+nextConfig[[:space:]]*=[[:space:]]*\{)/\$1\n  productionBrowserSourceMaps: false,/" "$cfg" \
+      || true
+  fi
+
+  if grep -Eq "experimental[[:space:]]*:[[:space:]]*\{" "$cfg"; then
+    grep -Eq "webpackMemoryOptimizations[[:space:]]*:[[:space:]]*true" "$cfg" \
+      || perl -0pi -e "s/(experimental[[:space:]]*:[[:space:]]*\{)/\$1\n    webpackMemoryOptimizations: true,/" "$cfg" || true
+  else
+    perl -0pi -e "s/(const[[:space:]]+nextConfig[[:space:]]*=[[:space:]]*\{)/\$1\n  experimental: { webpackMemoryOptimizations: true },/" "$cfg" \
+      || true
+  fi
+
+  if grep -Eq "webpack[[:space:]]*:[[:space:]]*\(" "$cfg" && ! grep -q "config.cache = false" "$cfg"; then
+    perl -0pi -e "s/(webpack[[:space:]]*:[[:space:]]*\([^)]*\)[[:space:]]*=>[[:space:]]*\{)/\$1\n    config.cache = false;/" "$cfg" \
+      || true
+  fi
+  ui_ok "Applied low-memory Next.js build config ($cfg)"
 }
 
 backup_env_file() {
@@ -794,7 +879,7 @@ phase_zram() {
   cat > "$ZRAM_CONF" << EOF
 # Auto-generated by 9router (tier=$TIER)
 [zram0]
-zram-size = ${size_mb}
+zram-size = ${size_mb}M
 compression-algorithm = lz4
 swap-priority = 100
 EOF
@@ -814,7 +899,7 @@ phase_swap() {
   local needed; needed=$(tier_swap_mb)
   [[ $needed -eq 0 ]] && return 0
 
-  if [[ $(swapon --show --noheadings 2>/dev/null | wc -l) -gt 0 ]]; then
+  if swapon --show --noheadings --raw 2>/dev/null | awk '{print $1}' | grep -vq '^/dev/zram'; then
     ui_ok "Swap already configured: $(free -h | awk '/Swap/ {print $2}')"
     return 0
   fi
@@ -861,10 +946,10 @@ phase_security() {
 }
 
 # ══════════════════════════════════════════════════════════════════
-#  Phase: Node.js + pnpm
+#  Phase: Node.js + npm
 # ══════════════════════════════════════════════════════════════════
 phase_node_pnpm() {
-  sec "Node.js + pnpm"
+  sec "Node.js + npm"
 
   local node_ok=false
   if command -v node &>/dev/null; then
@@ -874,35 +959,106 @@ phase_node_pnpm() {
   fi
   if [[ "$node_ok" == "false" ]]; then
     ui_step "Cài Node.js 20..."
-    ui_spin "Configuring NodeSource repository..." bash -c 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &>/dev/null'
-    ui_spin "Installing Node.js 20..." apt-get install -y -qq nodejs
+    run_logged_shell "Configuring NodeSource repository..." 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash -'
+    run_logged "Installing Node.js 20..." apt-get install -y -qq nodejs
     ui_ok "Node.js $(node -v) installed"
   else
     ui_ok "Node.js $(node -v) already installed"
   fi
 
-  if ! command -v pnpm &>/dev/null; then
-    ui_step "Cài pnpm..."
-    ui_spin "Installing pnpm globally..." npm install -g pnpm --silent
-    ui_ok "pnpm $(pnpm -v) installed"
-  else
-    ui_ok "pnpm $(pnpm -v) already installed"
-  fi
+  command -v npm &>/dev/null || die "npm not found after Node.js install"
+  ui_ok "npm $(npm -v) ready"
 }
 
 # ══════════════════════════════════════════════════════════════════
-#  Phase: Build (with headroom check + retry)
+#  Phase: Stage runtime (prebuilt package first, source build fallback)
 # ══════════════════════════════════════════════════════════════════
-phase_build() {
-  sec "Build 9Router"
+npm_low_memory_env() {
+  export npm_config_audit=false
+  export npm_config_fund=false
+  export npm_config_progress=false
+  export npm_config_jobs=1
+  export MAKEFLAGS=-j1
+}
 
-  systemctl stop 9router 2>/dev/null && ui_warn "Stopped existing 9router" || true
+extract_json_version() {
+  local file="$1"
+  sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$file" | head -1
+}
 
-  rm -rf "$BUILD_DIR"
-  mkdir -p "$BUILD_DIR"
+ensure_runtime_sqlite_deps() {
+  sec "Runtime SQLite deps"
+  npm_low_memory_env
+  mkdir -p "$RUNTIME_DEPS_DIR"
+  if [[ ! -f "$RUNTIME_DEPS_DIR/package.json" ]]; then
+    cat > "$RUNTIME_DEPS_DIR/package.json" << 'EOF'
+{"name":"9router-runtime","private":true}
+EOF
+  fi
+  run_logged "Installing runtime SQLite deps..." \
+    npm install --prefix "$RUNTIME_DEPS_DIR" \
+      better-sqlite3@12.6.2 sql.js@1.14.1 \
+      --no-audit --no-fund --no-save --prefer-online
+  [[ -f "$RUNTIME_DEPS_DIR/node_modules/better-sqlite3/package.json" ]] \
+    || die "better-sqlite3 runtime dependency missing after install"
+  [[ -f "$RUNTIME_DEPS_DIR/node_modules/sql.js/package.json" ]] \
+    || die "sql.js runtime dependency missing after install"
+  ui_ok "Runtime SQLite deps ready"
+}
+
+stage_prebuilt_package() {
+  sec "Stage prebuilt 9Router"
+  rm -rf "$BUILD_DIR" "$STAGE_DIR"
+  mkdir -p "$BUILD_DIR" "$STAGE_DIR"
+  npm_low_memory_env
+
+  local tarball tarball_path
+  LAST_STEP="Downloading $NPM_PACKAGE prebuilt package"
+  printf '\n[%s] npm pack %s@latest\n' "$(date -Iseconds)" "$NPM_PACKAGE" >>"$SETUP_LOG" 2>/dev/null || true
+  tarball=$(cd "$BUILD_DIR" && npm pack "$NPM_PACKAGE@latest" --pack-destination "$BUILD_DIR" --silent 2>>"$SETUP_LOG" | tail -1) \
+    || return 1
+  if [[ -z "$tarball" ]]; then
+    echo "npm pack produced no tarball output" >>"$SETUP_LOG"
+    return 1
+  fi
+  tarball_path="$BUILD_DIR/$tarball"
+  [[ -f "$tarball_path" ]] || return 1
+
+  run_logged "Extracting prebuilt package..." tar -xzf "$tarball_path" -C "$BUILD_DIR"
+  [[ -f "$BUILD_DIR/package/app/server.js" ]] || return 1
+  [[ -f "$BUILD_DIR/package/package.json" ]] || return 1
+
+  if command -v rsync &>/dev/null; then
+    run_logged "Staging prebuilt runtime..." rsync -a --delete "$BUILD_DIR/package/app/" "$STAGE_DIR/"
+  else
+    cp -a "$BUILD_DIR/package/app/." "$STAGE_DIR/"
+  fi
+
+  NEW_COMMIT="$(extract_json_version "$BUILD_DIR/package/package.json")"
+  DEPLOY_SOURCE="npm"
+  printf '%s\n' "$NEW_COMMIT" > "$STAGE_DIR/.install-version"
+  printf 'npm\n' > "$STAGE_DIR/.install-source"
+  [[ -f "$STAGE_DIR/server.js" ]] || return 1
+  ui_ok "Prebuilt 9Router v$NEW_COMMIT staged"
+}
+
+install_source_dependencies() {
+  npm_low_memory_env
+  if [[ -f package-lock.json ]]; then
+    run_logged "npm ci (source fallback)..." npm ci --include=dev --omit=optional --no-audit --no-fund
+  else
+    run_logged "npm install (source fallback)..." npm install --include=dev --omit=optional --no-audit --no-fund
+  fi
+}
+
+stage_source_build() {
+  sec "Build 9Router from source (fallback)"
+
+  rm -rf "$BUILD_DIR" "$STAGE_DIR"
+  mkdir -p "$BUILD_DIR" "$STAGE_DIR"
   ui_step "Cloning repository..."
   # shellcheck disable=SC2016
-  ui_spin "Cloning 9Router source..." bash -c 'git clone --depth=1 "$1" "$2" &>/dev/null' _ "$REPO_URL" "$BUILD_DIR"
+  run_logged_shell "Cloning 9Router source..." 'git clone --depth=1 "$1" "$2"' _ "$REPO_URL" "$BUILD_DIR"
   ui_ok "Cloned"
 
   NEW_COMMIT=$(git -C "$BUILD_DIR" rev-parse --short HEAD 2>/dev/null || echo "?")
@@ -916,12 +1072,13 @@ phase_build() {
 
   remove_webpack_forced_builds
   ensure_next_standalone_output
+  patch_next_low_memory_config
 
   local mem_limit; mem_limit=$(tier_node_mem)
+  [[ $mem_limit -gt 512 && $TOTAL_RAM -le 1024 ]] && mem_limit=512
   export NODE_OPTIONS="--max-old-space-size=${mem_limit}"
   ui_step "Node build memory limit: ${mem_limit}MB"
 
-  # Headroom pre-flight: keep RAM+swap above heap plus OS/build overhead.
   local free_total
   free_total=$(build_available_mb)
   local need=$(( mem_limit + 384 ))
@@ -932,28 +1089,57 @@ phase_build() {
   fi
 
   clean_build_caches "pre-build"
-  ui_step "Installing dependencies..."
-  ui_spin "pnpm install (low-memory mode)..." pnpm install --frozen-lockfile --prefer-offline --silent
+  install_source_dependencies
   ui_ok "Dependencies ready"
 
   BUILD_LOG="/tmp/9router-build-$$.log"
-  ui_step "Building Next.js (2-4 phút)..."
+  ui_step "Building Next.js from source (fallback)..."
   export NODE_ENV=production
-  if ! pnpm run build 2>&1 | tee "$BUILD_LOG" | tail -5; then
+  if ! npm run build 2>&1 | tee "$BUILD_LOG"; then
     ui_warn "Build failed — clearing caches and retrying once..."
     clean_build_caches "retry"
     free_total=$(build_available_mb)
-    mem_limit=$(tier_node_mem)
     export NODE_OPTIONS="--max-old-space-size=${mem_limit}"
     ui_step "Retry Node build memory limit: ${mem_limit}MB (free RAM+swap ${free_total}MB)"
-    if ! pnpm run build 2>&1 | tee -a "$BUILD_LOG" | tail -5; then
+    if ! npm run build 2>&1 | tee -a "$BUILD_LOG"; then
       build_failure_recover "Build thất bại sau retry. Log đầy đủ: $BUILD_LOG"
     fi
   fi
-  ui_ok "Build complete"
-  if [[ ! -f .next/standalone/server.js ]]; then
-    build_failure_recover "Build thất bại: server.js không tìm thấy"
+  [[ -f .next/standalone/server.js ]] || build_failure_recover "Build thất bại: server.js không tìm thấy"
+
+  if command -v rsync &>/dev/null; then
+    run_logged "Staging standalone runtime..." rsync -a --delete .next/standalone/ "$STAGE_DIR/"
+    run_logged "Staging static assets..." rsync -a --delete .next/static/ "$STAGE_DIR/.next/static/"
+    [[ -d public ]] && run_logged "Staging public assets..." rsync -a --delete public/ "$STAGE_DIR/public/" || true
+    [[ -d open-sse ]] && run_logged "Staging open-sse assets..." rsync -a --delete open-sse/ "$STAGE_DIR/open-sse/" || true
+    [[ -d src/mitm ]] && run_logged "Staging MITM assets..." rsync -a --delete src/mitm/ "$STAGE_DIR/src/mitm/" || true
+    [[ -d node_modules/node-forge ]] && run_logged "Staging node-forge..." rsync -a --delete node_modules/node-forge/ "$STAGE_DIR/node_modules/node-forge/" || true
+  else
+    cp -a .next/standalone/. "$STAGE_DIR/"
+    mkdir -p "$STAGE_DIR/.next"
+    cp -a .next/static "$STAGE_DIR/.next/"
+    [[ -d public ]] && cp -a public "$STAGE_DIR/" || true
+    [[ -d open-sse ]] && cp -a open-sse "$STAGE_DIR/" || true
+    [[ -d src/mitm ]] && mkdir -p "$STAGE_DIR/src" && cp -a src/mitm "$STAGE_DIR/src/" || true
+    [[ -d node_modules/node-forge ]] && mkdir -p "$STAGE_DIR/node_modules" && cp -a node_modules/node-forge "$STAGE_DIR/node_modules/" || true
   fi
+
+  DEPLOY_SOURCE="source"
+  printf '%s\n' "$NEW_COMMIT" > "$STAGE_DIR/.install-version"
+  printf 'source\n' > "$STAGE_DIR/.install-source"
+  [[ -f "$STAGE_DIR/server.js" ]] || build_failure_recover "Source staging failed: server.js not found"
+  ui_ok "Source build staged"
+}
+
+phase_build() {
+  sec "Prepare 9Router runtime"
+  if stage_prebuilt_package; then
+    ui_ok "Using prebuilt npm runtime"
+  else
+    ui_warn "Prebuilt package staging failed — falling back to source build. Log: $SETUP_LOG"
+    stage_source_build
+  fi
+  ensure_runtime_sqlite_deps
 }
 
 # Recover from a build failure: in update mode, rollback to previous snapshot
@@ -975,6 +1161,7 @@ build_failure_recover() {
 phase_deploy_runtime() {
   sec "Deploy runtime"
   ensure_service_user
+  [[ -f "$STAGE_DIR/server.js" ]] || die "Staged runtime missing: $STAGE_DIR/server.js"
 
   # Snapshot current runtime for rollback
   if [[ -d "$RUNTIME_DIR" ]] && [[ -f "$RUNTIME_DIR/server.js" ]]; then
@@ -984,19 +1171,17 @@ phase_deploy_runtime() {
     ui_ok "Previous build saved"
   fi
 
-  mkdir -p "$RUNTIME_DIR/.next" "$DATA_DIR"
+  mkdir -p "$RUNTIME_DIR" "$DATA_DIR"
 
   if command -v rsync &>/dev/null; then
-    ui_spin "Syncing standalone runtime..." rsync -a --delete .next/standalone/ "$RUNTIME_DIR/"
-    ui_spin "Syncing static assets..." rsync -a --delete .next/static/ "$RUNTIME_DIR/.next/static/"
-    [[ -d public ]] && ui_spin "Syncing public assets..." rsync -a --delete public/ "$RUNTIME_DIR/public/" || true
+    run_logged "Syncing staged runtime..." rsync -a --delete "$STAGE_DIR/" "$RUNTIME_DIR/"
   else
-    cp -a .next/standalone/. "$RUNTIME_DIR/"
-    cp -a .next/static       "$RUNTIME_DIR/.next/"
-    [[ -d public ]] && cp -a public "$RUNTIME_DIR/" || true
+    rm -rf "$RUNTIME_DIR"
+    mkdir -p "$RUNTIME_DIR"
+    cp -a "$STAGE_DIR/." "$RUNTIME_DIR/"
   fi
 
-  git -C "$BUILD_DIR" rev-parse --short HEAD > "$RUNTIME_DIR/.install-commit" 2>/dev/null || true
+  [[ -f "$RUNTIME_DIR/.install-version" ]] && cp -a "$RUNTIME_DIR/.install-version" "$RUNTIME_DIR/.install-commit" || true
   chown -R "$SERVICE_USER:$SERVICE_GROUP" "$RUNTIME_DIR" "$DATA_DIR"
   ui_ok "Runtime → $RUNTIME_DIR"
 }
@@ -1011,6 +1196,7 @@ phase_systemd() {
   write_env_file
   ui_ok "Env → $ENV_FILE (chmod 600)"
 
+  local runtime_heap; runtime_heap=$(tier_runtime_node_mem)
   cat > "$SERVICE_FILE" << EOF
 [Unit]
 Description=9router AI proxy
@@ -1021,7 +1207,9 @@ After=network.target
 Type=simple
 WorkingDirectory=$RUNTIME_DIR
 EnvironmentFile=$ENV_FILE
-ExecStart=/usr/bin/node $RUNTIME_DIR/server.js
+Environment=NODE_PATH=$RUNTIME_DEPS_DIR/node_modules
+Environment=NEXT_TELEMETRY_DISABLED=1
+ExecStart=/usr/bin/node --max-old-space-size=$runtime_heap $RUNTIME_DIR/server.js
 Restart=on-failure
 RestartSec=5
 User=$SERVICE_USER
@@ -1113,7 +1301,8 @@ $DOMAIN {
 EOF
   if ! caddy validate --config "$CADDYFILE" &>/dev/null; then
     local latest_backup
-    latest_backup=$(ls -1t "$CADDYFILE".bak.* 2>/dev/null | head -1 || true)
+    latest_backup=$(find /etc/caddy -maxdepth 1 -name "$(basename "$CADDYFILE").bak.*" -type f -printf '%T@ %p\n' 2>/dev/null \
+      | sort -rn | awk 'NR==1 {print $2}' || true)
     if [[ -n "$latest_backup" ]]; then
       cp -a "$latest_backup" "$CADDYFILE"
     else
@@ -1156,11 +1345,10 @@ phase_self_install() {
 phase_cleanup() {
   sec "Cleanup"
   cd /
-  rm -rf "$BUILD_DIR"
+  rm -rf "$BUILD_DIR" "$STAGE_DIR"
   [[ -n "${BUILD_LOG:-}" ]] && [[ -f "$BUILD_LOG" ]] && rm -f "$BUILD_LOG"
   rm -rf /tmp/next-* /tmp/turbopack-* /tmp/v8-compile-cache-* 2>/dev/null || true
-  ui_spin "Pruning pnpm store..." bash -c 'pnpm store prune &>/dev/null' || true
-  ui_spin "Cleaning npm cache..." bash -c 'npm cache clean --force &>/dev/null' || true
+  run_logged_shell "Cleaning npm cache..." 'npm cache clean --force' || true
   ui_spin "Removing unused apt packages..." apt-get autoremove --purge -y -qq
   ui_spin "Cleaning apt cache..." apt-get clean -qq
   ui_ok "Build artifacts removed"
@@ -1198,11 +1386,12 @@ collect_install_inputs() {
 
 collect_update_inputs() {
   source_existing_env
-  OLD_COMMIT=$(cat "$RUNTIME_DIR/.install-commit" 2>/dev/null || echo "không rõ")
+  OLD_COMMIT=$(cat "$RUNTIME_DIR/.install-version" 2>/dev/null || cat "$RUNTIME_DIR/.install-commit" 2>/dev/null || echo "không rõ")
+  OLD_SOURCE=$(cat "$RUNTIME_DIR/.install-source" 2>/dev/null || echo "unknown")
   local endpoint
   [[ -n "$DOMAIN" ]] && endpoint="$DOMAIN" || endpoint="IP only · http://$VPS_IP:$APP_PORT"
   ui_panel "Update settings" \
-    "Phiên bản hiện tại : $OLD_COMMIT"$'\n'"Domain             : $endpoint"$'\n'"Port               : $APP_PORT"$'\n'"Timezone           : $TZ_SET"$'\n\n'"Đổi mật khẩu đăng nhập (Enter để giữ nguyên)"
+    "Phiên bản hiện tại : $OLD_COMMIT ($OLD_SOURCE)"$'\n'"Domain             : $endpoint"$'\n'"Port               : $APP_PORT"$'\n'"Timezone           : $TZ_SET"$'\n\n'"Đổi mật khẩu đăng nhập (Enter để giữ nguyên)"
   local newp
   while true; do
     newp=$(ask_secret "Password mới (Enter giữ nguyên)" "")
@@ -1562,6 +1751,39 @@ doc_check_memory_cap() {
   fi
 }
 
+doc_check_runtime_artifact() {
+  is_installed || return
+  if [[ -f "$RUNTIME_DIR/server.js" ]]; then
+    local version source
+    version=$(cat "$RUNTIME_DIR/.install-version" 2>/dev/null || cat "$RUNTIME_DIR/.install-commit" 2>/dev/null || echo "?")
+    source=$(cat "$RUNTIME_DIR/.install-source" 2>/dev/null || echo "unknown")
+    doc_add OK "runtime" "Runtime ready ($source $version)" ""
+  else
+    doc_add FAIL "runtime" "$RUNTIME_DIR/server.js missing" "$INVOKE_BASE update"
+  fi
+}
+
+doc_check_runtime_deps() {
+  is_installed || return
+  local missing=()
+  [[ -f "$RUNTIME_DEPS_DIR/node_modules/better-sqlite3/package.json" ]] || missing+=("better-sqlite3")
+  [[ -f "$RUNTIME_DEPS_DIR/node_modules/sql.js/package.json" ]] || missing+=("sql.js")
+  if [[ ${#missing[@]} -eq 0 ]]; then
+    doc_add OK "runtime-deps" "SQLite runtime deps ready" ""
+  else
+    doc_add FAIL "runtime-deps" "Missing: ${missing[*]}" "sudo npm install --prefix $RUNTIME_DEPS_DIR better-sqlite3@12.6.2 sql.js@1.14.1 --no-audit --no-fund --no-save"
+  fi
+}
+
+doc_check_systemd_node_path() {
+  is_installed || return
+  if systemctl cat 9router 2>/dev/null | grep -q "NODE_PATH=$RUNTIME_DEPS_DIR/node_modules"; then
+    doc_add OK "node-path" "systemd NODE_PATH configured" ""
+  else
+    doc_add WARN "node-path" "systemd NODE_PATH missing runtime deps" "$INVOKE_BASE update"
+  fi
+}
+
 doc_render_text() {
   echo ""
   local n=0 ok_n=0 warn_n=0 fail_n=0
@@ -1682,6 +1904,9 @@ cmd_doctor() {
   doc_check_sysctl_drift     || true
   doc_check_zram             || true
   doc_check_memory_cap       || true
+  doc_check_runtime_artifact || true
+  doc_check_runtime_deps     || true
+  doc_check_systemd_node_path || true
   doc_check_cert             || true
   doc_check_security_updates || true
 
@@ -1710,7 +1935,7 @@ print_done_summary() {
   if ui_has_gum; then
     local build_lines=""
     if [[ "$INSTALL_MODE" == "update" ]]; then
-      build_lines=$'\n'"Build cũ     : ${OLD_COMMIT:-không rõ}"$'\n'"Build mới    : $NEW_COMMIT"
+      build_lines=$'\n'"Build cũ     : ${OLD_COMMIT:-không rõ}"$'\n'"Build mới    : $NEW_COMMIT (${DEPLOY_SOURCE:-unknown})"
     fi
     ui_panel "✔ $done_title" \
       "URL          : $BASE_URL"$'\n'"Password     : $INITIAL_PASSWORD"$'\n'"Tier         : $TIER$build_lines"$'\n\n'"Config       : $ENV_FILE"$'\n'"Runtime      : $RUNTIME_DIR"$'\n'"Previous     : $PREVIOUS_DIR (for rollback)"$'\n'"Data         : $DATA_DIR"$'\n\n'"Status       : $INVOKE_BASE status"$'\n'"Doctor       : $INVOKE_BASE doctor"$'\n'"Logs         : $INVOKE_BASE logs"$'\n'"Update       : $INVOKE_BASE update"$'\n'"Rollback     : $INVOKE_BASE rollback"$'\n'"Uninstall    : $INVOKE_BASE uninstall"
@@ -1726,7 +1951,7 @@ print_done_summary() {
     echo -e "  Tier         : $TIER"
     if [[ "$INSTALL_MODE" == "update" ]]; then
       echo -e "  Build cũ     : ${Y}${OLD_COMMIT:-không rõ}${N}"
-      echo -e "  Build mới    : ${G}$NEW_COMMIT${N}"
+      echo -e "  Build mới    : ${G}$NEW_COMMIT (${DEPLOY_SOURCE:-unknown})${N}"
     fi
     echo ""
     echo -e "  ${W}Files${N}"
@@ -1762,7 +1987,7 @@ interactive_menu() {
   detect_spec; classify_tier; show_spec
 
   local installed_label="not installed"
-  is_installed && installed_label="installed (commit $(cat $RUNTIME_DIR/.install-commit 2>/dev/null || echo '?'))"
+  is_installed && installed_label="installed ($(cat "$RUNTIME_DIR/.install-version" 2>/dev/null || cat "$RUNTIME_DIR/.install-commit" 2>/dev/null || echo '?') · $(cat "$RUNTIME_DIR/.install-source" 2>/dev/null || echo unknown))"
   ui_panel "Toolkit status" "Status : $installed_label"$'\n'"Tier   : $TIER"$'\n'"IP     : $VPS_IP"
 
   if ! command -v gum &>/dev/null; then
