@@ -1378,11 +1378,15 @@ interactive_menu() {
   echo ""
 
   if ! command -v gum &>/dev/null; then
-    echo "Available commands:"
-    echo "  install · update · doctor · tune · status · logs · rollback · uninstall"
-    echo ""
-    echo "Run e.g.: $INVOKE_BASE install"
-    exit 0
+    if [[ $EUID -eq 0 ]] && [[ -f /etc/debian_version ]]; then
+      ensure_gum
+    else
+      echo "Available commands:"
+      echo "  install · update · doctor · tune · status · logs · rollback · uninstall"
+      echo ""
+      echo "Run e.g.: $INVOKE_BASE install"
+      exit 0
+    fi
   fi
 
   local choice
@@ -1395,13 +1399,13 @@ interactive_menu() {
       "Tune (re-apply tier tuning)" \
       "Rollback (restore previous build)" \
       "Uninstall (data preserved)" \
-      "Exit")
+      "Exit" </dev/tty)
   else
     choice=$(gum choose --header "9router toolkit (tier=$TIER)" \
       "Install (fresh install)" \
       "Doctor (health check)" \
       "Status (system spec only)" \
-      "Exit")
+      "Exit" </dev/tty)
   fi
 
   case "$choice" in
