@@ -209,7 +209,7 @@ Yêu cầu trên máy local: `go 1.22+`, `rsync`, `ssh`.
 ## 👩‍🏫 9Router
 Interactive menu (no args):
 ```sh
-curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_9router.sh | sudo bash
+curl -fsSL http://st.changcomchien.workers.dev/9router | sudo bash
 ```
 
 Direct subcommand (note `-s --` — required when passing args via pipe):
