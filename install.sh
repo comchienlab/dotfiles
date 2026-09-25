@@ -47,7 +47,7 @@ if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
 fi
 
 # Download and install the f files
-QK_FILES=("fgit.sh" "fsetup.sh" "qkcommit.sh")
+QK_FILES=("fgit.sh" "fsetup.sh")
 REPO_URL="https://raw.githubusercontent.com/comchienlab/dotfiles/main"
 
 for file in "${QK_FILES[@]}"; do
@@ -67,4 +67,4 @@ for file in "${QK_FILES[@]}"; do
     fi
 done
 
-print_message "$GREEN" "Installation completed!\nPlease restart your terminal or run:\n    source ~/.bashrc (if using bash)\n    source ~/.zshrc  (if using zsh)\n\nAvailable commands:\n    fgit   - Quick Git operations\n    fsetup - Quick Setup operations\n    qkcommit - Quick Commit operations"
+print_message "$GREEN" "Installation completed!\nPlease restart your terminal or run:\n    source ~/.bashrc (if using bash)\n    source ~/.zshrc  (if using zsh)\n\nAvailable commands:\n    fgit   - Quick Git operations\n    fsetup - Quick Setup operations"

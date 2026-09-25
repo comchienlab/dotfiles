@@ -10,8 +10,7 @@ This is a dotfiles repository containing shell scripts and configuration files f
 
 ### Main Interactive Scripts
 - `fsetup` - Interactive menu-driven setup operations (system packages, desktop apps, development tools)
-- `fgit` - Git workflow automation with branch management, commits, stash operations  
-- `qkcommit` - Conventional commit message generator with emoji support
+- `fgit` - Git workflow automation with branch management, commits, stash operations
 
 ### Installation and Setup
 - `./install.sh` - Bootstrap script that installs the main `f*` commands to `~/.local/bin`
@@ -23,7 +22,6 @@ This is a dotfiles repository containing shell scripts and configuration files f
 ### Utilities
 - `linux/create_swap.sh` - Linux swap file creation
 - `linux/debloat.sh` - Remove unnecessary system packages
-- `n8n/n8n-installer.sh` - n8n workflow automation tool installer
 - `rclone/rclone-tool.sh` - Cloud storage management tool installer
 - `fonts/nerdfont-installer.sh` - Nerd Fonts installer
 
@@ -79,7 +77,7 @@ This is a dotfiles repository containing shell scripts and configuration files f
 - Development environment setup (unified dev toolchain via mise)
 - Package management and system optimization
 
-### Commit Conventions (qkcommit.sh)
+### Commit Conventions (fgit.sh)
 - Conventional commit format: `type(scope): emoji - description`
 - Gitmoji integration for visual commit history
 - Automatic staging and push workflows

@@ -38,33 +38,11 @@ fgit
 ```
 </details>
 
-<details>
-<summary><code>qkcommit</code> - Quick Commit Operations</summary>
-
-This script helps you write conventional commit messages easily. It prompts for the type of change, scope, and description.
-
-To run, type the following command in your terminal:
-```sh
-qkcommit
-```
-</details>
-
 ---
 
 ## 🛠️ Installers & Utilities
 
 A collection of scripts to install various tools and perform system utilities.
-
-<details>
-<summary><code>n8n-installer.sh</code> - Install n8n</summary>
-
-Installs [n8n](https://n8n.io/), a free and source-available workflow automation tool.
-
-To install:
-```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/n8n/n8n-installer.sh)
-```
-</details>
 
 <details>
 <summary><code>rclone-tool.sh</code> - Install rclone tool</summary>
