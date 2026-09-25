@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# Define default versions for tools
-JAVA_VERSION="17.0.13-amzn"  # Amazon Corretto 17.0.13
-MAVEN_VERSION="3.9.9"        # Maven 3.9.9
-YARN_VERSION="1"             # Yarn v1
-
 # Check if `gum` is installed, if not, install it
 if ! command -v gum &> /dev/null; then
     echo "gum is not installed. Installing gum..."
@@ -13,21 +8,11 @@ if ! command -v gum &> /dev/null; then
     echo "gum installed successfully."
 fi
 
-# Check if SDKMAN is installed
-# Ensure SDKMAN is sourced if installed
-if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
-    source "$HOME/.sdkman/bin/sdkman-init.sh"
-    SDKMAN_INSTALLED=true
-else
-    SDKMAN_INSTALLED=false
-fi
-
 # Main menu options
 choice=$(gum choose "Run Flyway Migration" \
                     "Repair Flyway Migration" \
                     "Fast Create migration" \
-                    "Fix Migration Order Conflicts" \
-                    "Setup Development Environment")
+                    "Fix Migration Order Conflicts")
 
 # Print the selected option
 echo "You selected: $choice"
@@ -158,112 +143,4 @@ case $choice in
           "✔ File đã tạo thành công: $FILEPATH"
         ;;
 
-    "Setup Development Environment")
-        # Select tools to install (using gum's multi-selection feature)
-        tools=$(gum choose --no-limit \
-                    "Install SDKMAN" \
-                    "Install Java (Amazon Corretto 17.0.13)" \
-                    "Install Maven (3.9.9)" \
-                    "Install Volta" \
-                    "Install Node.js (v18 via Volta)" \
-                    "Install Yarn (v$YARN_VERSION)" \
-                    "Install Docker & Docker Compose")
-
-        # If no tools selected, show a warning
-        if [ -z "$tools" ]; then
-            gum style --foreground 196 "No tools selected for installation."
-            exit 1
-        fi
-
-        # Print selected tools
-        echo "You selected the following tools for installation:"
-        echo "$tools"
-
-        # Convert the tools string into an array
-        IFS=$'\n' read -rd '' -a tool_array <<< "$tools"
-
-        # Loop through each selected tool and install it
-        for tool in "${tool_array[@]}"; do
-            case "$tool" in
-                "Install SDKMAN")
-                    if ! $SDKMAN_INSTALLED; then
-                        gum style --foreground 46 "Installing SDKMAN..."
-                        curl -s "https://get.sdkman.io" | bash
-                        source "$HOME/.sdkman/bin/sdkman-init.sh"
-                        SDKMAN_INSTALLED=true
-                    else
-                        gum style --foreground 196 "SDKMAN is already installed."
-                    fi
-                    ;;
-
-                "Install Java (Amazon Corretto 17.0.13)")
-                    if $SDKMAN_INSTALLED; then
-                        gum style --foreground 46 "Installing Java (Amazon Corretto 17.0.13)..."
-                        sdk install java $JAVA_VERSION
-                    else
-                        gum style --foreground 196 "SDKMAN is not installed. Please install SDKMAN first."
-                    fi
-                    ;;
-
-                "Install Maven (3.9.9)")
-                    if $SDKMAN_INSTALLED; then
-                        gum style --foreground 46 "Installing Maven (3.9.9)..."
-                        sdk install maven $MAVEN_VERSION
-                    else
-                        gum style --foreground 196 "SDKMAN is not installed. Please install SDKMAN first."
-                    fi
-                    ;;
-
-                "Install Volta")
-                    gum style --foreground 46 "Installing Volta..."
-                    curl https://get.volta.sh | bash
-                    source "$HOME/.volta/bin/volta"
-                    ;;
-
-                "Install Node.js (v18 via Volta)")
-                    if command -v volta &> /dev/null; then
-                        gum style --foreground 46 "Installing Node.js (v18)..."
-                        volta install node@v18
-                    else
-                        gum style --foreground 196 "Volta is not installed. Install Volta first."
-                    fi
-                    ;;
-
-                "Install Yarn (v$YARN_VERSION)")
-                    gum style --foreground 46 "Installing Yarn v$YARN_VERSION..."
-                    # First, ensure that npm is installed (if npm isn't available, Yarn won't work)
-                    if command -v npm &> /dev/null; then
-                        npm install -g yarn@$YARN_VERSION
-                    else
-                        gum style --foreground 196 "npm is not installed. Please install npm first."
-                    fi
-                    ;;
-
-                "Install Docker & Docker Compose")
-                    # Install Docker and Docker Compose
-                    if ! command -v docker &> /dev/null; then
-                        gum style --foreground 46 "Installing Docker..."
-                        curl -fsSL https://get.docker.com | bash
-                        sudo systemctl enable docker
-                        sudo systemctl start docker
-                        gum style --foreground 46 "Docker installed successfully."
-                    else
-                        gum style --foreground 196 "Docker is already installed."
-                    fi
-
-                    # Install Docker Compose
-                    if ! command -v docker-compose &> /dev/null; then
-                        gum style --foreground 46 "Installing Docker Compose..."
-                        curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-                        sudo chmod +x /usr/local/bin/docker-compose
-                        gum style --foreground 46 "Docker Compose installed successfully."
-                    else
-                        gum style --foreground 196 "Docker Compose is already installed."
-                    fi
-                    ;;
-            esac
-        done
-
-        gum style --foreground 46 "Selected tools installation is complete!"
-        ;;
 esac

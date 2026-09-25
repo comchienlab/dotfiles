@@ -77,7 +77,7 @@ This is a dotfiles repository containing shell scripts and configuration files f
 
 ### System Setup (fsetup.sh)
 - Modular installation options via interactive menus
-- Development environment setup (Java via SDKMAN, Node.js via FNM/Volta)
+- Development environment setup (unified dev toolchain via mise)
 - Package management and system optimization
 
 ### Commit Conventions (qkcommit.sh)

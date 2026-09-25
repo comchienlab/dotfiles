@@ -58,7 +58,7 @@ User Invocation ──> Dependency Pre-flight (gum, git, package managers)
 |---|---|
 | `/` (Root) | Core interactive CLI tools (`fsetup.sh`, `fgit.sh`, `qkcommit.sh`) and the bootstrap installer (`install.sh`). |
 | `linux/` | Linux system utilities: `create_swap.sh` (swap file creation), `debloat.sh` (pre-installed package removal), `vps_optimize.sh` (VPS tuning pipeline), `fub_clean.sh` (interactive cleanup assistant), `certbot-kit.sh` (Let's Encrypt certificates for bare IPs). |
-| `config/` | Reference configurations, never executed: `shell/` (`.zshrc`, `.zshfn`, `starship.toml`), `ghostty/` (`config`, `custom.css`), and `zed/` (`settings.json`). |
+| `config/` | Reference configurations, never executed: `shell/` (`.zshrc`, `.zshfn`, `starship.toml`), `ghostty/` (`config`, `custom.css`), `zed/` (`settings.json`), and `mise/` (`config.toml` — unified dev toolchain). |
 | `backend/` | Database and backend engineering utilities: `qkflyway.sh` (Flyway migration generator) and `qkbe.sh` (Flyway repair/migration runners, conflict resolution, environment bootstrap). |
 | `fonts/` | Font management: `nerdfont-installer.sh` (queries GitHub release API, downloads selected Nerd Fonts, installs to `~/.local/share/fonts`, rebuilds font cache). |
 | `llm/` | AI proxy deployment kits: `setup_9router.sh` (VPS router with tiered memory tuning, self-diagnostics doctor, systemd service) and `setup_cliproxy.sh` (CLIProxyAPI PLUS installer with Go build and Caddy SSL). |
@@ -174,6 +174,8 @@ All interactive tooling adheres to standard `gum` components:
   # Fuzzy filter search
   branch=$(git branch --all | gum filter --placeholder "Search branch...")
   ```
+
+  > **gum v2:** `gum choose --prompt` was removed — use `--header` instead. All other flags in use are v2-compatible.
 - **Inputs & Prompts**:
   ```bash
   input_val=$(gum input --placeholder "Enter value..." --char-limit 50)
@@ -219,7 +221,7 @@ fi
 - `qkcommit.sh`: Standalone conventional commit wizard with Gitmoji integration and push automation.
 
 ### Dotfiles & Configurations
-- `config/shell/.zshrc`: Primary interactive Zsh shell profile (aliases for `eza`, `lazydocker`, `bun`, environment exports for SDKMAN/FNM).
+- `config/shell/.zshrc`: Primary interactive Zsh shell profile (aliases for `eza`, `lazydocker`, `bun`, mise shell activation).
 - `config/shell/.zshfn`: Modular Zsh helper functions (safe delete `dl`, Claude Code profile switchers `use-claude` and `use-glm`).
 - `config/shell/starship.toml`: Prompt theme configuration with Catppuccin Mocha color scheme.
 - `config/ghostty/config`: Ghostty terminal configuration (fonts, opacity, keybindings, clipboard safety).
@@ -256,8 +258,9 @@ fi
 - **macOS**: Secondary platform. Uses `brew` (Homebrew) for packages and formulas.
 
 ### Runtimes & Version Managers
-- **Java**: Managed via **SDKMAN** (`Amazon Corretto 17.0.13`, `Maven 3.9.9`).
-- **Node.js**: Managed via **FNM** or **Volta** (Node.js v18 LTS, Yarn v1).
+- **Java / Maven**: Managed via **mise** (`corretto-17`, `maven 3.9.9`).
+- **Node.js / Yarn / pnpm**: Managed via **mise** (`node lts`, `yarn 1`, `pnpm 12`).
+- **Go / Rust**: Managed via **mise** (`latest`).
 - **Bun**: Configured in `config/shell/.zshrc` (`~/.bun/bin`).
 
 ---

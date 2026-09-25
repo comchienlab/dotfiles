@@ -169,7 +169,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/ba
 <details>
 <summary><code>qkbe.sh</code> - Backend Developer Assistant</summary>
 
-Backend workflow helper: runs Flyway migrations and repairs, generates entity scaffolding (UML/DDL), and installs pinned toolchain versions via SDKMAN and Volta.
+Backend workflow helper: runs Flyway migrations and repairs, generates entity scaffolding (UML/DDL), and fixes migration order conflicts.
 
 To run:
 ```sh
@@ -215,5 +215,6 @@ sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/ma
 This repository also includes configuration files for various tools to maintain a consistent development environment.
 
 -   **Shell:** `config/shell/.zshrc`, `config/shell/.zshfn`, and `config/shell/starship.toml` for a customized and informative shell prompt.
+-   **mise:** `config/mise/config.toml` — unified dev toolchain (Java, Maven, Node, Yarn, pnpm, Go, Rust, LazyDocker).
 -   **Ghostty:** `config/ghostty/config` and `config/ghostty/custom.css` for the Ghostty terminal emulator.
 -   **Zed:** `config/zed/settings.json` for the Zed code editor.

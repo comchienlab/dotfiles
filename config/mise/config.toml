@@ -1,0 +1,20 @@
+# mise — unified dev toolchain
+# https://mise.jdx.dev
+#
+# Installed to ~/.config/mise/config.toml by fsetup.sh.
+# Apply with: mise install
+
+[settings]
+# No release-age delay. Set to e.g. "7d" to only install releases
+# that have been published for at least a week (supply-chain safety).
+minimum_release_age = "0d"
+
+[tools]
+go = "latest"
+java = "corretto-17"
+node = "lts"
+pnpm = "12"
+rust = "latest"
+maven = "3.9.9"
+yarn = "1"
+lazydocker = "latest"

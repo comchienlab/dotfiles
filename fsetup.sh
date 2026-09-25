@@ -3,13 +3,10 @@
 # Display startup banner
 gum style --border double --margin "1" --padding "1" --border-foreground "#FF5733" "🚀 fsetup – Quick setup operations"
 
-# Define default versions
-JAVA_VERSION="17.0.13-amzn" # Amazon Corretto 17.0.13
-MAVEN_VERSION="3.9.9"       # Maven 3.9.9
-NODE_VERSION="18"           # Node.js v18 (via Volta)
-YARN_VERSION="1"            # Yarn v1
+# Config sources
 ZSHRC_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/config/shell/.zshrc"
 STARSHIP_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/config/shell/starship.toml"
+MISE_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/config/mise/config.toml"
 
 # Check if `gum` is installed, if not install it
 if ! command -v gum &>/dev/null; then
@@ -29,14 +26,6 @@ if ! command -v gum &>/dev/null; then
         echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
         sudo apt update && sudo apt install -y gum
     fi
-fi
-
-# Check if SDKMAN is installed and source it
-if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
-    source "$HOME/.sdkman/bin/sdkman-init.sh"
-    SDKMAN_INSTALLED=true
-else
-    SDKMAN_INSTALLED=false
 fi
 
 # Main menu options
@@ -271,7 +260,7 @@ EOF
         fi
 
         # Use gum to let the user select a package from the list
-        selected_package=$(echo "$packages" | gum choose --limit 1 --prompt "Select a package to purge")
+        selected_package=$(echo "$packages" | gum choose --limit 1 --header "Select a package to purge")
 
         # If no package is selected, exit
         if [ -z "$selected_package" ]; then
@@ -371,126 +360,37 @@ EOF
         ;;
 
     "🛠️ Setup Development Environment")
-        tools=$(gum choose --no-limit \
-                    "🛠️ Install SDKMAN" \
-                    "☕ Install Java (Amazon Corretto 17.0.13)" \
-                    "📦 Install Maven (3.9.9)" \
-                    "⚡ Install Volta" \
-                    "📁 Install FNM" \
-                    "🐳 Install LazyDocker" \
-                    "🟩 Install Node.js (v18 via FNM)" \
-                    "🧶 Install Yarn (v1)" \
-                    "🐳 Install Docker & Docker Compose")
+        # Unified dev toolchain via mise (replaces SDKMAN / Volta / FNM)
+        if ! command -v mise &>/dev/null; then
+            gum style --foreground 46 "Installing mise..."
+            curl -fsSL https://mise.run | sh
+        fi
 
-    # If no tools selected, show a warning
-    if [ -z "$tools" ]; then
-        gum style --foreground 196 "No tools selected for installation."
-        exit 1
-    fi
+        MISE_BIN="$HOME/.local/bin/mise"
+        if [ ! -x "$MISE_BIN" ]; then
+            gum style --foreground 196 "mise installation failed."
+            exit 1
+        fi
 
-    # Print selected tools
-    echo "You selected the following tools for installation:"
-    echo "$tools"
+        gum style --foreground 46 "Downloading mise configuration..."
+        mkdir -p "$HOME/.config/mise"
+        curl -fsSL -o "$HOME/.config/mise/config.toml" "$MISE_CONFIG"
 
-    # Convert the tools string into an array
-    IFS=$'\n' read -rd '' -a tool_array <<<"$tools"
+        gum style --foreground 46 "Installing dev toolchain (this may take a while)..."
+        "$MISE_BIN" install
 
-    # Loop through each selected tool and install it
-    for tool in "${tool_array[@]}"; do
-        case "$tool" in
-        "🛠️ Install SDKMAN")
-            if ! $SDKMAN_INSTALLED; then
-                gum style --foreground 46 "Installing SDKMAN..."
-                curl -s "https://get.sdkman.io" | bash
-                source "$HOME/.sdkman/bin/sdkman-init.sh"
-                SDKMAN_INSTALLED=true
-            else
-                gum style --foreground 196 "SDKMAN is already installed."
-            fi
-            ;;
+        # Enable shell activation (idempotent)
+        if ! grep -q "mise activate" "$HOME/.zshrc" 2>/dev/null; then
+            gum style --foreground 46 "Enabling mise shell activation..."
+            {
+                echo ''
+                echo '# mise'
+                echo 'export PATH="$HOME/.local/share/mise/shims:$PATH"'
+                echo 'eval "$(~/.local/bin/mise activate zsh)"'
+            } >> "$HOME/.zshrc"
+        fi
 
-        "☕ Install Java (Amazon Corretto 17.0.13)")
-            if $SDKMAN_INSTALLED; then
-                gum style --foreground 46 "Installing Java (Amazon Corretto 17.0.13)..."
-                sdk install java $JAVA_VERSION
-            else
-                gum style --foreground 196 "SDKMAN is not installed. Please install SDKMAN first."
-            fi
-            ;;
-
-        "📦 Install Maven (3.9.9)")
-            if $SDKMAN_INSTALLED; then
-                gum style --foreground 46 "Installing Maven (3.9.9)..."
-                sdk install maven $MAVEN_VERSION
-            else
-                gum style --foreground 196 "SDKMAN is not installed. Please install SDKMAN first."
-            fi
-            ;;
-
-        "⚡ Install Volta")
-            gum style --foreground 46 "Installing Volta..."
-            curl https://get.volta.sh | bash
-            source "$HOME/.volta/bin/volta"
-            ;;
-        "📁 Install FNM")
-            gum style --foreground 46 "Installing FNM..."
-            curl -fsSL https://fnm.vercel.app/install | bash
-            fnm install --lts
-            gum style --foreground 46 "FNM installed successfully!"
-            ;;
-        "🐳 Install LazyDocker")
-            gum style --foreground 46 "Installing LazyDocker..."
-            cd /tmp
-            LAZYDOCKER_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazydocker/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
-            curl -sLo lazydocker.tar.gz "https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker_${LAZYDOCKER_VERSION}_Linux_x86_64.tar.gz"
-            tar -xf lazydocker.tar.gz lazydocker
-            gum style --foreground 46 "Installing LazyDocker executable..."
-            sudo install lazydocker /usr/local/bin
-            gum style --foreground 46 "Cleaning up LazyDocker installers..."
-            rm lazydocker.tar.gz lazydocker
-            cd -
-            ;;
-
-        "🟩 Install Node.js (v18 via FNM)")
-            if command -v fnm &>/dev/null; then
-                gum style --foreground 46 "Installing Node.js (v18)..."
-                fnm install v18
-                fnm use v18
-            else
-                gum style --foreground 196 "FNM is not installed. Install FNM first."
-            fi
-            ;;
-
-        "🧶 Install Yarn (v1)")
-            if command -v npm &>/dev/null; then
-                gum style --foreground 46 "Installing Yarn (v1)..."
-                npm install -g yarn
-            else
-                gum style --foreground 196 "NPM is not installed. Install Node.js and NPM first."
-            fi
-            ;;
-
-        "🐳 Install Docker & Docker Compose")
-            gum style --foreground 46 "Installing Docker & Docker Compose..."
-            gum style --foreground 46 "Setting up Docker repository and key..."
-            sudo install -m 0755 -d /etc/apt/keyrings
-            sudo wget -qO /etc/apt/keyrings/docker.asc https://download.docker.com/linux/ubuntu/gpg
-            sudo chmod a+r /etc/apt/keyrings/docker.asc
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
-            gum style --foreground 46 "Updating apt repository for Docker..."
-            sudo apt update
-            gum style --foreground 46 "Installing Docker packages..."
-            sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-ce-rootless-extras
-            gum style --foreground 46 "Adding current user to Docker group..."
-            sudo usermod -aG docker ${USER}
-            gum style --foreground 46 "Configuring Docker daemon log options..."
-            echo '{"log-driver":"json-file","log-opts":{"max-size":"10m","max-file":"5"}}' | sudo tee /etc/docker/daemon.json
-            gum style --foreground 46 "Docker & Docker Compose installed successfully!"
-            ;;
-        esac
-    done
-
-        gum style --foreground 46 "Selected tools installation is complete!"
+        gum style --foreground 46 "Dev toolchain installed via mise."
         ;;
 
 *)

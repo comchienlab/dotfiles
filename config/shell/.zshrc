@@ -82,9 +82,9 @@ export PATH="$HOME/.local/bin:$PATH"
 export PATH="/opt/homebrew/bin:$PATH"
 eval "$(starship init zsh)"
 
-#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
-export SDKMAN_DIR="$HOME/.sdkman"
-[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+# mise — unified dev toolchain
+export PATH="$HOME/.local/share/mise/shims:$PATH"
+eval "$(~/.local/bin/mise activate zsh)"
 
 # Task Master aliases added on 6/26/2025
 alias tm='task-master'
@@ -103,13 +103,6 @@ gemini_key() {
     export GEMINI_API_KEY="$1"
     echo "✅ GEMINI_API_KEY set successfully!"
 }
-
-# fnm
-FNM_PATH="/opt/homebrew/opt/fnm/bin"
-if [ -d "$FNM_PATH" ]; then
-  eval "`fnm env`"
-fi
-
 
 claude_execute() {
   emulate -L zsh
