@@ -13,6 +13,7 @@
 # some only check, some exit with instructions. That decision is not shared.
 
 # ── Colors (palette from AGENTS.md) ──────────────────────────────────
+# shellcheck disable=SC2034  # consumed by callers, not all used in-file
 UI_GREEN='\033[0;32m'
 UI_RED='\033[0;31m'
 UI_BLUE='\033[0;34m'

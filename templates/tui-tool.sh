@@ -8,6 +8,7 @@
 # when the user cancels (Esc / "No"), and set -e would abort the shell.
 
 REPO_URL="https://raw.githubusercontent.com/comchienlab/dotfiles/main"
+# shellcheck source=/dev/null
 source <(curl -fsSL "$REPO_URL/base/ui.sh")
 
 # ── Dependency policy: pick ONE ──────────────────────────────────────

@@ -5,6 +5,7 @@
 # Conventions: AGENTS.md → "Dependency Verification Pattern".
 
 REPO_URL="https://raw.githubusercontent.com/comchienlab/dotfiles/main"
+# shellcheck source=/dev/null
 source <(curl -fsSL "$REPO_URL/base/ui.sh")
 
 # ── Preconditions ────────────────────────────────────────────────────
