@@ -206,6 +206,31 @@ if ! command_exists gum; then
 fi
 ```
 
+### Shared Helpers (`base/`)
+
+`base/ui.sh` holds policy-free helpers: colors, `command_exists()`, `gum_available()`, `ui_info`/`ui_success`/`ui_warn`/`ui_error`, and `ui_banner()`. Source it, never execute it:
+
+```bash
+REPO_URL="https://raw.githubusercontent.com/comchienlab/dotfiles/main"
+source <(curl -fsSL "$REPO_URL/base/ui.sh")
+```
+
+**It must never install anything, set shell options, print, or exit at source time.** Dependency policy stays with the caller — some scripts auto-install gum, some only check, some exit with instructions. That decision is deliberately not shared.
+
+Cost: sourcing adds one network fetch per run and the script is no longer single-file. For short scripts (< ~100 lines) duplication is cheaper than coupling — keep those self-contained.
+
+### Templates (`templates/`)
+
+Starters to **copy**, not source:
+
+| Template | Use for |
+|---|---|
+| `tui-tool.sh` | Interactive gum tool (menu, confirm, input) |
+| `installer.sh` | `curl \| bash` installer that changes the system |
+| `server-setup.sh` | Non-interactive server script with `set -euo pipefail` |
+
+`qkbe.sh` also lives here: it hardcodes `MIGRATION_DIR="sql/oracle"` and `config/flyway.properties`, so it is designed to run inside a Java project, not as a global command.
+
 ---
 
 ## Important Files

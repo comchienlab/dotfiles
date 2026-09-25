@@ -173,3 +173,30 @@ This repository also includes configuration files for various tools to maintain 
 -   **mise:** `config/mise/config.toml` — unified dev toolchain (Java, Maven, Node, Yarn, pnpm, Go, Rust, LazyDocker).
 -   **Ghostty:** `config/ghostty/config` and `config/ghostty/custom.css` for the Ghostty terminal emulator.
 -   **Zed:** `config/zed/settings.json` for the Zed code editor.
+
+---
+
+## 📁 Repository Layout
+
+```
+install.sh              bootstrap installer
+bin/                    commands installed to ~/.local/bin (fgit, fsetup)
+base/                   shared shell helpers sourced by other scripts
+templates/              starters to copy into a project
+scripts/linux/          Linux system utilities
+scripts/llm/            AI proxy deployment kits
+scripts/fonts/          Nerd Fonts installer
+scripts/rclone/         rclone tooling
+config/                 reference configurations (shell, ghostty, zed, mise)
+```
+
+### Writing a new script
+
+`base/ui.sh` provides shared, policy-free helpers — colors, `command_exists()`, `gum_available()`, `ui_info`/`ui_success`/`ui_warn`/`ui_error`, and `ui_banner()`:
+
+```sh
+REPO_URL="https://raw.githubusercontent.com/comchienlab/dotfiles/main"
+source <(curl -fsSL "$REPO_URL/base/ui.sh")
+```
+
+It never installs anything: each script keeps its own dependency policy. Start from a template in `templates/` — `tui-tool.sh` (interactive), `installer.sh` (`curl | bash`), or `server-setup.sh` (non-interactive).
