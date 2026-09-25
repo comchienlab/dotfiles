@@ -20,7 +20,7 @@ The repository adopts a remote-executable model where scripts can be executed di
    - Handles developer workflows: Git operations (`fgit.sh`), workstation provisioning (`fsetup.sh`), and conventional commit composition (`qkcommit.sh`).
 2. **Infrastructure & Platform Automation Tier (`linux/`, `backend/`, `macos/`, `llm/`, `fonts/`, `n8n/`, `rclone/`)**
    - Domain-specific automation: Linux system utilities (`linux/`), Docker Compose orchestration (`n8n/`), database migration helpers (`backend/`), font cache builders (`fonts/`), macOS maintenance (`macos/`), and low-spec VPS reverse-proxy deployments (`llm/`).
-3. **Shell Environment & Dotfile Tier (`.config/`, `ghostty/`, `zed/`)**
+3. **Shell Environment & Dotfile Tier (`config/`)**
    - Reference configurations and runtime profiles for modern developer terminals and editors (Ghostty terminal with custom GTK CSS, Zed editor with Claude 3.5 Sonnet integration, and Catppuccin Mocha Starship prompt).
 
 ### Data Flow & Execution Pipeline
@@ -58,15 +58,13 @@ User Invocation ──> Dependency Pre-flight (gum, git, package managers)
 |---|---|
 | `/` (Root) | Core interactive CLI tools (`fsetup.sh`, `fgit.sh`, `qkcommit.sh`) and the bootstrap installer (`install.sh`). |
 | `linux/` | Linux system utilities: `create_swap.sh` (swap file creation), `debloat.sh` (pre-installed package removal), `vps_optimize.sh` (VPS tuning pipeline), `fub_clean.sh` (interactive cleanup assistant), `certbot-kit.sh` (Let's Encrypt certificates for bare IPs). |
-| `.config/` | Shell configuration files: `.zshrc` (interactive shell setup, aliases, completions), `.zshfn` (reusable functions, Claude Code profile switchers), and `starship.toml` (Catppuccin Mocha prompt). |
+| `config/` | Reference configurations, never executed: `shell/` (`.zshrc`, `.zshfn`, `starship.toml`), `ghostty/` (`config`, `custom.css`), and `zed/` (`settings.json`). |
 | `backend/` | Database and backend engineering utilities: `qkflyway.sh` (Flyway migration generator) and `qkbe.sh` (Flyway repair/migration runners, conflict resolution, environment bootstrap). |
 | `fonts/` | Font management: `nerdfont-installer.sh` (queries GitHub release API, downloads selected Nerd Fonts, installs to `~/.local/share/fonts`, rebuilds font cache). |
-| `ghostty/` | Ghostty terminal configuration: `config` (fonts, window geometry, keybindings, clipboard rules) and `custom.css` (GTK styling and window border-radius). |
 | `llm/` | AI proxy deployment kits: `setup_9router.sh` (VPS router with tiered memory tuning, self-diagnostics doctor, systemd service) and `setup_cliproxy.sh` (CLIProxyAPI PLUS installer with Go build and Caddy SSL). |
 | `macos/` | macOS-specific maintenance: `qkmacos.sh` (Zsh TUI script for clearing user/system caches, Xcode derived data, and restarting Finder/Dock). |
 | `n8n/` | Workflow automation: `n8n-installer.sh` (Docker Compose deployment of n8n with Caddy reverse proxy and auto-updates). |
 | `rclone/` | Cloud storage tooling: `rclone-tool.sh` (interactive TUI for remote browsing, transfer queues, and configuration sync). |
-| `zed/` | Zed editor configuration: `setting.json` (AI model selection, telemetry disablement, keybindings, and typography). |
 
 ---
 
@@ -221,12 +219,12 @@ fi
 - `qkcommit.sh`: Standalone conventional commit wizard with Gitmoji integration and push automation.
 
 ### Dotfiles & Configurations
-- `.config/.zshrc`: Primary interactive Zsh shell profile (aliases for `eza`, `lazydocker`, `bun`, environment exports for SDKMAN/FNM).
-- `.config/.zshfn`: Modular Zsh helper functions (safe delete `dl`, Claude Code profile switchers `use-claude` and `use-glm`).
-- `.config/starship.toml`: Prompt theme configuration with Catppuccin Mocha color scheme.
-- `ghostty/config`: Ghostty terminal configuration (fonts, opacity, keybindings, clipboard safety).
-- `ghostty/custom.css`: GTK CSS sheet for Ghostty terminal window padding and border radius.
-- `zed/setting.json`: Zed editor configuration with Claude 3.5 Sonnet, disabled telemetry, and Geist/JetBrains fonts.
+- `config/shell/.zshrc`: Primary interactive Zsh shell profile (aliases for `eza`, `lazydocker`, `bun`, environment exports for SDKMAN/FNM).
+- `config/shell/.zshfn`: Modular Zsh helper functions (safe delete `dl`, Claude Code profile switchers `use-claude` and `use-glm`).
+- `config/shell/starship.toml`: Prompt theme configuration with Catppuccin Mocha color scheme.
+- `config/ghostty/config`: Ghostty terminal configuration (fonts, opacity, keybindings, clipboard safety).
+- `config/ghostty/custom.css`: GTK CSS sheet for Ghostty terminal window padding and border radius.
+- `config/zed/settings.json`: Zed editor configuration with Claude 3.5 Sonnet, disabled telemetry, and Geist/JetBrains fonts.
 
 ### Specialized Infrastructure Scripts
 - `linux/create_swap.sh`: Interactive swap file creation for Linux hosts.
@@ -247,7 +245,7 @@ fi
 
 ### Required Interpreters & Tools
 - **Bash 4+**: Required for root and utility scripts.
-- **Zsh**: Primary user shell (`.config/.zshrc`) and `macos/qkmacos.sh` interpreter.
+- **Zsh**: Primary user shell (`config/shell/.zshrc`) and `macos/qkmacos.sh` interpreter.
 - **Charm `gum`**: Required for all interactive CLI scripts. Auto-installed via Charm APT repository or Homebrew.
 - **Git**: Required for version control operations and git worktree checks (`git rev-parse --is-inside-work-tree`).
 - **curl / wget**: Required for remote script execution and asset downloads.
@@ -260,7 +258,7 @@ fi
 ### Runtimes & Version Managers
 - **Java**: Managed via **SDKMAN** (`Amazon Corretto 17.0.13`, `Maven 3.9.9`).
 - **Node.js**: Managed via **FNM** or **Volta** (Node.js v18 LTS, Yarn v1).
-- **Bun**: Configured in `.config/.zshrc` (`~/.bun/bin`).
+- **Bun**: Configured in `config/shell/.zshrc` (`~/.bun/bin`).
 
 ---
 

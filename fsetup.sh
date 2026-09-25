@@ -8,8 +8,8 @@ JAVA_VERSION="17.0.13-amzn" # Amazon Corretto 17.0.13
 MAVEN_VERSION="3.9.9"       # Maven 3.9.9
 NODE_VERSION="18"           # Node.js v18 (via Volta)
 YARN_VERSION="1"            # Yarn v1
-ZSHRC_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/.config/.zshrc"
-STARSHIP_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/.config/starship.toml"
+ZSHRC_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/config/shell/.zshrc"
+STARSHIP_CONFIG="https://raw.githubusercontent.com/comchienlab/dotfiles/main/config/shell/starship.toml"
 
 # Check if `gum` is installed, if not install it
 if ! command -v gum &>/dev/null; then

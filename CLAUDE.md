@@ -42,9 +42,9 @@ This is a dotfiles repository containing shell scripts and configuration files f
 ## Configuration Files
 
 ### Terminal and Editor Configurations
-- `ghostty/config` - Ghostty terminal emulator settings (fonts, keybindings, appearance)
-- `ghostty/custom.css` - Custom styling for Ghostty terminal
-- `zed/setting.json` - Zed editor configuration (fonts, themes, assistant settings)
+- `config/ghostty/config` - Ghostty terminal emulator settings (fonts, keybindings, appearance)
+- `config/ghostty/custom.css` - Custom styling for Ghostty terminal
+- `config/zed/settings.json` - Zed editor configuration (fonts, themes, assistant settings)
 
 ### Shell Environment
 - Scripts configure zsh with starship prompt, autosuggestions, and syntax highlighting

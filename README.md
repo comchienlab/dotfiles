@@ -214,6 +214,6 @@ sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/ma
 
 This repository also includes configuration files for various tools to maintain a consistent development environment.
 
--   **Zsh & Starship:** `.zshrc` and `starship.toml` for a customized and informative shell prompt.
--   **Ghostty:** `ghostty/config` and `ghostty/custom.css` for the Ghostty terminal emulator.
--   **Zed:** `zed/settings.json` for the Zed code editor.
+-   **Shell:** `config/shell/.zshrc`, `config/shell/.zshfn`, and `config/shell/starship.toml` for a customized and informative shell prompt.
+-   **Ghostty:** `config/ghostty/config` and `config/ghostty/custom.css` for the Ghostty terminal emulator.
+-   **Zed:** `config/zed/settings.json` for the Zed code editor.
