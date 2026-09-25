@@ -7,7 +7,7 @@ My personal collection of dotfiles and scripts to streamline the setup of a new 
 Run the following command to install the necessary tools and set up the environment:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/comchienlab/linux-setup/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/install.sh | bash
 ```
 
 ---
@@ -123,6 +123,39 @@ bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/de
 </details>
 
 <details>
+<summary><code>vps_optimize.sh</code> - VPS Performance Tuning</summary>
+
+Non-interactive tuning pipeline for low-spec VPS hosts: swap, sysctl, ulimits, UFW, fail2ban, systemd limits, unused service pruning, and a BBR check.
+
+To run:
+```sh
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/vps_optimize.sh)
+```
+</details>
+
+<details>
+<summary><code>fub_clean.sh</code> - Ubuntu Cleanup Assistant</summary>
+
+Interactive multi-select cleanup for Ubuntu: APT caches, journal logs, trash/temp files, browser and developer caches, snap/flatpak/docker pruning, and manual package purge. Includes a dry-run mode.
+
+To run:
+```sh
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/fub_clean.sh)
+```
+</details>
+
+<details>
+<summary><code>certbot-kit.sh</code> - IP Certificate Setup</summary>
+
+Issues Let's Encrypt certificates for **bare IP addresses** (no domain required), with auto-detection across multiple ACME clients and the 6-day shortlived profile.
+
+To run:
+```sh
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/certbot-kit.sh)
+```
+</details>
+
+<details>
 <summary><code>qkflyway.sh</code> - Flyway Database Migrations</summary>
 
 A helper script for running [Flyway](https://flywaydb.org/) database migrations.
@@ -133,79 +166,19 @@ bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/ba
 ```
 </details>
 
----
-
-## 🤖 GoClaw — AI Agent Gateway
-
-Scripts để triển khai [GoClaw](https://goclaw.sh) — AI Agent Gateway viết bằng Go — trên VPS cấu hình thấp, **không dùng Docker**.
-
 <details>
-<summary><code>goclaw.sh</code> - GoClaw Manager (chạy từ máy local)</summary>
+<summary><code>qkbe.sh</code> - Backend Developer Assistant</summary>
 
-Wrapper script với menu tương tác để quản lý toàn bộ vòng đời GoClaw từ máy local qua SSH:
-- Setup VPS lần đầu
-- Deploy (build local + copy lên VPS)
-- Xem status / logs / restart
-- SSH trực tiếp vào VPS
-- Sửa config
+Backend workflow helper: runs Flyway migrations and repairs, generates entity scaffolding (UML/DDL), and installs pinned toolchain versions via SDKMAN and Volta.
 
+To run:
 ```sh
-# Chạy remote (không cần clone repo):
-bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/goclaw/goclaw.sh)
-
-# Hoặc nếu đã clone repo:
-bash goclaw/goclaw.sh --host root@1.2.3.4
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/backend/qkbe.sh)
 ```
-
-Config VPS được lưu vào `~/.goclaw.conf` (tự động, không cần nhập lại mỗi lần).
-Khi chạy remote, script tự download `goclaw-setup.sh` và `goclaw-deploy.sh` từ GitHub khi cần.
-</details>
-
-<details>
-<summary><code>goclaw-setup.sh</code> - Cài đặt VPS (chạy trên VPS)</summary>
-
-Cài đặt toàn bộ môi trường server:
-- PostgreSQL 16 + pgvector (local) **hoặc** kết nối External DB qua URL
-- Go 1.22+ và GoClaw binary (`go install`)
-- systemd service với auto-restart
-- UFW firewall
-- Caddy reverse proxy + HTTPS tự động (nếu có domain)
-- Tối ưu hóa VPS: swap 2GB, sysctl, ulimits
-
-**Cấu hình port:**
-- `INTERNAL_PORT` — port app lắng nghe (default: `3000`)
-- `EXTERNAL_PORT` — port public nếu không có domain (default: `8080`)
-- Có domain → Caddy proxy `443 → INTERNAL_PORT` (HTTPS tự động)
-
-```sh
-# Chạy thẳng trên VPS (không cần clone repo):
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/goclaw/goclaw-setup.sh)
-```
-
-</details>
-
-<details>
-<summary><code>goclaw-deploy.sh</code> - Build & Deploy từ máy local</summary>
-
-Build binary và Web UI trên máy local, sau đó copy lên VPS:
-- Cross-compile Go binary cho `linux/amd64` hoặc `arm64`
-- Build Web UI tự động phát hiện package manager (npm/bun/pnpm)
-- Rsync static files lên VPS với `--delete`
-- Backup binary cũ trước khi replace
-- Restart service và verify
-
-```sh
-# Chạy remote (không cần clone repo):
-bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/goclaw/goclaw-deploy.sh) \
-  --host root@1.2.3.4 --dir ~/projects/goclaw
-
-# Hoặc qua goclaw.sh menu → [2] Deploy
-```
-
-Yêu cầu trên máy local: `go 1.22+`, `rsync`, `ssh`.
 </details>
 
 ---
+
 ## 👩‍🏫 9Router
 Interactive menu (no args):
 ```sh
@@ -225,7 +198,17 @@ sudo 9router status      # one-screen summary
 sudo 9router rollback    # restore previous build
 ```
 
+---
 
+## 🔀 CLIProxyAPI PLUS
+
+All-in-one deployment for [CLIProxyAPIPlus](https://github.com/router-for-me/CLIProxyAPIPlus) on Ubuntu/Debian (amd64, arm64): Go binary + Caddy HTTPS + systemd service + UFW rules.
+
+```sh
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_cliproxy.sh)
+```
+
+---
 
 ## ⚙️ Configuration Files
 
@@ -233,4 +216,4 @@ This repository also includes configuration files for various tools to maintain 
 
 -   **Zsh & Starship:** `.zshrc` and `starship.toml` for a customized and informative shell prompt.
 -   **Ghostty:** `ghostty/config` and `ghostty/custom.css` for the Ghostty terminal emulator.
--   **Zed:** `zed/setting.json` for the Zed code editor.
+-   **Zed:** `zed/settings.json` for the Zed code editor.
