@@ -1,6 +1,6 @@
 # My Dotfiles
 
-My personal collection of dotfiles and scripts to streamline the setup of a new Linux or macOS environment.
+My personal collection of dotfiles and scripts to streamline the setup of a new Linux environment.
 
 ## 🚀 Installation
 
