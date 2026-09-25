@@ -18,8 +18,8 @@ The repository adopts a remote-executable model where scripts can be executed di
 1. **Interactive CLI Orchestrator Tier (`~/.local/bin/` / Root)**
    - Self-contained, zero-dependency Bash/Zsh scripts providing interactive menu-driven interfaces (`gum choose`, `gum filter`, `gum input`, `gum confirm`).
    - Handles developer workflows: Git operations (`fgit.sh`), workstation provisioning (`fsetup.sh`), and conventional commit composition (`qkcommit.sh`).
-2. **Infrastructure & Platform Automation Tier (`linux/`, `backend/`, `macos/`, `llm/`, `fonts/`, `n8n/`, `rclone/`)**
-   - Domain-specific automation: Linux system utilities (`linux/`), Docker Compose orchestration (`n8n/`), database migration helpers (`backend/`), font cache builders (`fonts/`), macOS maintenance (`macos/`), and low-spec VPS reverse-proxy deployments (`llm/`).
+2. **Infrastructure & Platform Automation Tier (`linux/`, `backend/`, `llm/`, `fonts/`, `n8n/`, `rclone/`)**
+   - Domain-specific automation: Linux system utilities (`linux/`), Docker Compose orchestration (`n8n/`), database migration helpers (`backend/`), font cache builders (`fonts/`), and low-spec VPS reverse-proxy deployments (`llm/`).
 3. **Shell Environment & Dotfile Tier (`config/`)**
    - Reference configurations and runtime profiles for modern developer terminals and editors (Ghostty terminal with custom GTK CSS, Zed editor with Claude 3.5 Sonnet integration, and Catppuccin Mocha Starship prompt).
 
@@ -59,10 +59,9 @@ User Invocation ──> Dependency Pre-flight (gum, git, package managers)
 | `/` (Root) | Core interactive CLI tools (`fsetup.sh`, `fgit.sh`, `qkcommit.sh`) and the bootstrap installer (`install.sh`). |
 | `linux/` | Linux system utilities: `create_swap.sh` (swap file creation), `debloat.sh` (pre-installed package removal), `vps_optimize.sh` (VPS tuning pipeline), `fub_clean.sh` (interactive cleanup assistant), `certbot-kit.sh` (Let's Encrypt certificates for bare IPs). |
 | `config/` | Reference configurations, never executed: `shell/` (`.zshrc`, `.zshfn`, `starship.toml`), `ghostty/` (`config`, `custom.css`), `zed/` (`settings.json`), and `mise/` (`config.toml` — unified dev toolchain). |
-| `backend/` | Database and backend engineering utilities: `qkflyway.sh` (Flyway migration generator) and `qkbe.sh` (Flyway repair/migration runners, conflict resolution, environment bootstrap). |
+| `backend/` | Backend engineering utilities: `qkbe.sh` (Flyway migration runner/repair/creation, conflict resolution, entity scaffolding). |
 | `fonts/` | Font management: `nerdfont-installer.sh` (queries GitHub release API, downloads selected Nerd Fonts, installs to `~/.local/share/fonts`, rebuilds font cache). |
 | `llm/` | AI proxy deployment kits: `setup_9router.sh` (VPS router with tiered memory tuning, self-diagnostics doctor, systemd service) and `setup_cliproxy.sh` (CLIProxyAPI PLUS installer with Go build and Caddy SSL). |
-| `macos/` | macOS-specific maintenance: `qkmacos.sh` (Zsh TUI script for clearing user/system caches, Xcode derived data, and restarting Finder/Dock). |
 | `n8n/` | Workflow automation: `n8n-installer.sh` (Docker Compose deployment of n8n with Caddy reverse proxy and auto-updates). |
 | `rclone/` | Cloud storage tooling: `rclone-tool.sh` (interactive TUI for remote browsing, transfer queues, and configuration sync). |
 
@@ -77,13 +76,10 @@ bash fgit.sh
 bash fsetup.sh
 bash qkcommit.sh
 
-# Execute macOS-specific maintenance (requires zsh)
-zsh macos/qkmacos.sh
-
 # Execute utility scripts
 bash linux/create_swap.sh
 bash fonts/nerdfont-installer.sh
-bash backend/qkflyway.sh
+bash backend/qkbe.sh
 ```
 
 ### Installation and Bootstrap
@@ -127,7 +123,6 @@ bash llm/setup_9router.sh doctor --json
 - **Non-POSIX Standard**: Scripts strictly target Bash 4+ or Zsh. Avoid rewriting scripts into POSIX `/bin/sh` syntax.
 - **Shebangs**:
   - `#!/bin/bash` for cross-platform/Linux scripts (`fgit.sh`, `fsetup.sh`, `qkcommit.sh`, `install.sh`, `backend/qkbe.sh`).
-  - `#!/bin/zsh` for macOS maintenance scripts (`macos/qkmacos.sh`).
   - `#!/usr/bin/env bash` for standalone server scripts (`linux/vps_optimize.sh`, `linux/fub_clean.sh`, `fonts/nerdfont-installer.sh`).
 - Use modern Bash features: `[[ ... ]]` for conditionals, `read -rd '' -a` for array splitting, `<(...)` for process substitution, and `${var%.*}` parameter expansions.
 
@@ -234,9 +229,7 @@ fi
 - `linux/vps_optimize.sh`: Non-interactive VPS tuning pipeline (swap, sysctl, ulimits, UFW, fail2ban, systemd).
 - `linux/fub_clean.sh`: Interactive multi-select Ubuntu cleanup assistant with dry-run mode.
 - `linux/certbot-kit.sh`: Let's Encrypt certificate issuance for bare IP addresses via multiple ACME clients.
-- `macos/qkmacos.sh`: macOS maintenance and cache cleanup wizard.
-- `backend/qkbe.sh`: Backend developer assistant with Flyway migration repairs and dev environment tooling.
-- `backend/qkflyway.sh`: Oracle Flyway SQL migration filename generator.
+- `backend/qkbe.sh`: Backend developer assistant — Flyway migration run/repair/create, conflict resolution, entity scaffolding.
 - `fonts/nerdfont-installer.sh`: GitHub release scraper and installer for Nerd Fonts.
 - `llm/setup_9router.sh`: VPS AI proxy router deployment script with tiered tuning and built-in health check diagnostics.
 - `rclone/rclone-tool.sh`: Rclone cloud storage management utility.
@@ -247,7 +240,7 @@ fi
 
 ### Required Interpreters & Tools
 - **Bash 4+**: Required for root and utility scripts.
-- **Zsh**: Primary user shell (`config/shell/.zshrc`) and `macos/qkmacos.sh` interpreter.
+- **Zsh**: Primary user shell (`config/shell/.zshrc`).
 - **Charm `gum`**: Required for all interactive CLI scripts. Auto-installed via Charm APT repository or Homebrew.
 - **Git**: Required for version control operations and git worktree checks (`git rev-parse --is-inside-work-tree`).
 - **curl / wget**: Required for remote script execution and asset downloads.

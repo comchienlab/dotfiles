@@ -18,8 +18,7 @@ This is a dotfiles repository containing shell scripts and configuration files f
 - `bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/install.sh)` - Remote installation
 
 ### Platform-Specific Scripts
-- `macos/qkmacos.sh` - macOS environment setup with Homebrew and applications
-- `backend/qkflyway.sh` - Flyway database migration helper
+- `backend/qkbe.sh` - Backend developer assistant (Flyway migrations, entity scaffolding)
 
 ### Utilities
 - `linux/create_swap.sh` - Linux swap file creation

@@ -49,18 +49,6 @@ qkcommit
 ```
 </details>
 
-<details>
-<summary><code>qkmacos</code> - Quick macOS Setup</summary>
-
-This script automates the setup and configuration of a macOS environment. It installs Homebrew, essential applications, and developer tools.
-
-To install and run:
-```sh
-sudo curl -fsSL -o /usr/local/bin/qkmacos https://raw.githubusercontent.com/comchienlab/dotfiles/main/macos/qkmacos.sh && sudo chmod +x /usr/local/bin/qkmacos
-qkmacos
-```
-</details>
-
 ---
 
 ## 🛠️ Installers & Utilities
@@ -156,20 +144,9 @@ sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/ma
 </details>
 
 <details>
-<summary><code>qkflyway.sh</code> - Flyway Database Migrations</summary>
-
-A helper script for running [Flyway](https://flywaydb.org/) database migrations.
-
-To run:
-```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/backend/qkflyway.sh)
-```
-</details>
-
-<details>
 <summary><code>qkbe.sh</code> - Backend Developer Assistant</summary>
 
-Backend workflow helper: runs Flyway migrations and repairs, generates entity scaffolding (UML/DDL), and fixes migration order conflicts.
+Backend workflow helper: runs Flyway migrations and repairs, creates migration files, generates entity scaffolding (UML/DDL), and fixes migration order conflicts.
 
 To run:
 ```sh
