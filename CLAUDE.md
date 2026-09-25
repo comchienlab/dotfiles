@@ -22,8 +22,8 @@ This is a dotfiles repository containing shell scripts and configuration files f
 - `backend/qkflyway.sh` - Flyway database migration helper
 
 ### Utilities
-- `create_swap.sh` - Linux swap file creation
-- `debloat.sh` - Remove unnecessary system packages
+- `linux/create_swap.sh` - Linux swap file creation
+- `linux/debloat.sh` - Remove unnecessary system packages
 - `n8n/n8n-installer.sh` - n8n workflow automation tool installer
 - `rclone/rclone-tool.sh` - Cloud storage management tool installer
 - `fonts/nerdfont-installer.sh` - Nerd Fonts installer

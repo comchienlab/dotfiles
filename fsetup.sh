@@ -367,7 +367,7 @@ EOF
 
     "💾 Create Swap File")
         gum style --foreground 46 "Running swap file creation script..."
-        bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/create_swap.sh)
+        bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/create_swap.sh)
         ;;
 
     "🛠️ Setup Development Environment")

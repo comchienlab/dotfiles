@@ -551,7 +551,7 @@ main() {
     # Check if running through pipe (no interactive mode)
     if [[ ! -t 0 ]]; then
         print_warning "Running in non-interactive mode"
-        print_info "For interactive mode, run: ./certbot-kit.sh"
+        print_info "For interactive mode, run: ./linux/certbot-kit.sh"
 
         # Set defaults for non-interactive mode
         if [[ "$YOUR_EMAIL" == "your-email@example.com" ]]; then

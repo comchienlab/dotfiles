@@ -18,8 +18,8 @@ The repository adopts a remote-executable model where scripts can be executed di
 1. **Interactive CLI Orchestrator Tier (`~/.local/bin/` / Root)**
    - Self-contained, zero-dependency Bash/Zsh scripts providing interactive menu-driven interfaces (`gum choose`, `gum filter`, `gum input`, `gum confirm`).
    - Handles developer workflows: Git operations (`fgit.sh`), workstation provisioning (`fsetup.sh`), and conventional commit composition (`qkcommit.sh`).
-2. **Infrastructure & Platform Automation Tier (`backend/`, `macos/`, `llm/`, `fonts/`, `n8n/`, `rclone/`)**
-   - Domain-specific automation: Docker Compose orchestration (`n8n/`), database migration helpers (`backend/`), font cache builders (`fonts/`), macOS maintenance (`macos/`), and low-spec VPS reverse-proxy deployments (`llm/`).
+2. **Infrastructure & Platform Automation Tier (`linux/`, `backend/`, `macos/`, `llm/`, `fonts/`, `n8n/`, `rclone/`)**
+   - Domain-specific automation: Linux system utilities (`linux/`), Docker Compose orchestration (`n8n/`), database migration helpers (`backend/`), font cache builders (`fonts/`), macOS maintenance (`macos/`), and low-spec VPS reverse-proxy deployments (`llm/`).
 3. **Shell Environment & Dotfile Tier (`.config/`, `ghostty/`, `zed/`)**
    - Reference configurations and runtime profiles for modern developer terminals and editors (Ghostty terminal with custom GTK CSS, Zed editor with Claude 3.5 Sonnet integration, and Catppuccin Mocha Starship prompt).
 
@@ -56,7 +56,8 @@ User Invocation ──> Dependency Pre-flight (gum, git, package managers)
 
 | Directory | Purpose |
 |---|---|
-| `/` (Root) | Core interactive CLI tools (`fsetup.sh`, `fgit.sh`, `qkcommit.sh`), bootstrap installer (`install.sh`), and system utilities (`create_swap.sh`, `debloat.sh`, `vps_optimize.sh`, `fub_clean.sh`, `certbot-kit.sh`). |
+| `/` (Root) | Core interactive CLI tools (`fsetup.sh`, `fgit.sh`, `qkcommit.sh`) and the bootstrap installer (`install.sh`). |
+| `linux/` | Linux system utilities: `create_swap.sh` (swap file creation), `debloat.sh` (pre-installed package removal), `vps_optimize.sh` (VPS tuning pipeline), `fub_clean.sh` (interactive cleanup assistant), `certbot-kit.sh` (Let's Encrypt certificates for bare IPs). |
 | `.config/` | Shell configuration files: `.zshrc` (interactive shell setup, aliases, completions), `.zshfn` (reusable functions, Claude Code profile switchers), and `starship.toml` (Catppuccin Mocha prompt). |
 | `backend/` | Database and backend engineering utilities: `qkflyway.sh` (Flyway migration generator) and `qkbe.sh` (Flyway repair/migration runners, conflict resolution, environment bootstrap). |
 | `fonts/` | Font management: `nerdfont-installer.sh` (queries GitHub release API, downloads selected Nerd Fonts, installs to `~/.local/share/fonts`, rebuilds font cache). |
@@ -82,7 +83,7 @@ bash qkcommit.sh
 zsh macos/qkmacos.sh
 
 # Execute utility scripts
-bash create_swap.sh
+bash linux/create_swap.sh
 bash fonts/nerdfont-installer.sh
 bash backend/qkflyway.sh
 ```
@@ -129,7 +130,7 @@ bash llm/setup_9router.sh doctor --json
 - **Shebangs**:
   - `#!/bin/bash` for cross-platform/Linux scripts (`fgit.sh`, `fsetup.sh`, `qkcommit.sh`, `install.sh`, `backend/qkbe.sh`).
   - `#!/bin/zsh` for macOS maintenance scripts (`macos/qkmacos.sh`).
-  - `#!/usr/bin/env bash` for standalone server scripts (`vps_optimize.sh`, `fub_clean.sh`, `fonts/nerdfont-installer.sh`).
+  - `#!/usr/bin/env bash` for standalone server scripts (`linux/vps_optimize.sh`, `linux/fub_clean.sh`, `fonts/nerdfont-installer.sh`).
 - Use modern Bash features: `[[ ... ]]` for conditionals, `read -rd '' -a` for array splitting, `<(...)` for process substitution, and `${var%.*}` parameter expansions.
 
 ### Execution Modes & Error Handling
@@ -139,7 +140,7 @@ bash llm/setup_9router.sh doctor --json
     ```bash
     gum confirm "Proceed with commit?" || exit 1
     ```
-- **Server & Non-Interactive Scripts (`vps_optimize.sh`, `setup_9router.sh`, `fub_clean.sh`)**:
+- **Server & Non-Interactive Scripts (`linux/vps_optimize.sh`, `setup_9router.sh`, `linux/fub_clean.sh`)**:
   - Enforce strict error handling: `set -euo pipefail`.
   - Use trap handlers for diagnostics and cleanup:
     ```bash
@@ -228,6 +229,11 @@ fi
 - `zed/setting.json`: Zed editor configuration with Claude 3.5 Sonnet, disabled telemetry, and Geist/JetBrains fonts.
 
 ### Specialized Infrastructure Scripts
+- `linux/create_swap.sh`: Interactive swap file creation for Linux hosts.
+- `linux/debloat.sh`: Removes pre-installed packages to reclaim disk space.
+- `linux/vps_optimize.sh`: Non-interactive VPS tuning pipeline (swap, sysctl, ulimits, UFW, fail2ban, systemd).
+- `linux/fub_clean.sh`: Interactive multi-select Ubuntu cleanup assistant with dry-run mode.
+- `linux/certbot-kit.sh`: Let's Encrypt certificate issuance for bare IP addresses via multiple ACME clients.
 - `macos/qkmacos.sh`: macOS maintenance and cache cleanup wizard.
 - `backend/qkbe.sh`: Backend developer assistant with Flyway migration repairs and dev environment tooling.
 - `backend/qkflyway.sh`: Oracle Flyway SQL migration filename generator.

@@ -107,7 +107,7 @@ A script to create and enable a swap file on a Linux system, which is useful whe
 
 To run:
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/create_swap.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/create_swap.sh)
 ```
 </details>
 
@@ -118,7 +118,7 @@ This script helps in removing pre-installed software that you may not need, free
 
 To run:
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/debloat.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/debloat.sh)
 ```
 </details>
 
@@ -129,7 +129,7 @@ Non-interactive tuning pipeline for low-spec VPS hosts: swap, sysctl, ulimits, U
 
 To run:
 ```sh
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/vps_optimize.sh)
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/vps_optimize.sh)
 ```
 </details>
 
@@ -140,7 +140,7 @@ Interactive multi-select cleanup for Ubuntu: APT caches, journal logs, trash/tem
 
 To run:
 ```sh
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/fub_clean.sh)
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/fub_clean.sh)
 ```
 </details>
 
@@ -151,7 +151,7 @@ Issues Let's Encrypt certificates for **bare IP addresses** (no domain required)
 
 To run:
 ```sh
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/certbot-kit.sh)
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/certbot-kit.sh)
 ```
 </details>
 

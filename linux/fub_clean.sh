@@ -45,7 +45,7 @@ title() {
 if [[ $EUID -ne 0 ]]; then
   echo -e "${YELLOW}→ Cần sudo để chạy${RESET}"
   echo -e "${CYAN}Lệnh mượt nhất:${RESET}"
-  echo "   sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/fub_clean.sh)"
+  echo "   sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/fub_clean.sh)"
   exit 1
 fi
 
