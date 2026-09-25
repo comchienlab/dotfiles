@@ -47,12 +47,12 @@ if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
 fi
 
 # Download and install the f files
-QK_FILES=("fgit.sh" "fsetup.sh")
+QK_FILES=("bin/fgit.sh" "bin/fsetup.sh")
 REPO_URL="https://raw.githubusercontent.com/comchienlab/dotfiles/main"
 
 for file in "${QK_FILES[@]}"; do
-    # Remove .sh extension for the command name
-    command_name="${file%.sh}"
+    # Strip the directory and .sh extension for the command name
+    command_name="$(basename "${file%.sh}")"
     target_path="$INSTALL_DIR/$command_name"
     
     print_message "$BLUE" "Installing $command_name..."

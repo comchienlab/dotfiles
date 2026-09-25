@@ -351,12 +351,12 @@ EOF
 
     "🔠 Install Nerd Fonts")
         gum style --foreground 46 "Running Nerd Font installer..."
-        bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/fonts/nerdfont-installer.sh)
+        bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/fonts/nerdfont-installer.sh)
         ;;
 
     "💾 Create Swap File")
         gum style --foreground 46 "Running swap file creation script..."
-        bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/create_swap.sh)
+        bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/linux/create_swap.sh)
         ;;
 
     "🛠️ Setup Development Environment")

@@ -17,13 +17,13 @@ This is a dotfiles repository containing shell scripts and configuration files f
 - `bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/install.sh)` - Remote installation
 
 ### Platform-Specific Scripts
-- `backend/qkbe.sh` - Backend developer assistant (Flyway migrations, entity scaffolding)
+- `templates/qkbe.sh` - Backend developer assistant (Flyway migrations, entity scaffolding)
 
 ### Utilities
-- `linux/create_swap.sh` - Linux swap file creation
-- `linux/debloat.sh` - Remove unnecessary system packages
-- `rclone/rclone-tool.sh` - Cloud storage management tool installer
-- `fonts/nerdfont-installer.sh` - Nerd Fonts installer
+- `scripts/linux/create_swap.sh` - Linux swap file creation
+- `scripts/linux/debloat.sh` - Remove unnecessary system packages
+- `scripts/rclone/rclone-tool.sh` - Cloud storage management tool installer
+- `scripts/fonts/nerdfont-installer.sh` - Nerd Fonts installer
 
 ## Development and Testing
 

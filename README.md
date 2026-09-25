@@ -51,7 +51,7 @@ Installs and configures [rclone](https://rclone.org/), a command-line program to
 
 To install:
 ```sh
-sudo curl -fsSL -o /usr/local/bin/cccrclone https://raw.githubusercontent.com/comchienlab/dotfiles/main/rclone/rclone-tool.sh && sudo chmod +x /usr/local/bin/cccrclone
+sudo curl -fsSL -o /usr/local/bin/cccrclone https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/rclone/rclone-tool.sh && sudo chmod +x /usr/local/bin/cccrclone
 ```
 </details>
 
@@ -62,7 +62,7 @@ Installs Nerd Fonts, which are popular for developers and provide a wide range o
 
 To run:
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/fonts/nerdfont-installer.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/fonts/nerdfont-installer.sh)
 ```
 </details>
 
@@ -73,7 +73,7 @@ A script to create and enable a swap file on a Linux system, which is useful whe
 
 To run:
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/create_swap.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/linux/create_swap.sh)
 ```
 </details>
 
@@ -84,7 +84,7 @@ This script helps in removing pre-installed software that you may not need, free
 
 To run:
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/debloat.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/linux/debloat.sh)
 ```
 </details>
 
@@ -95,7 +95,7 @@ Non-interactive tuning pipeline for low-spec VPS hosts: swap, sysctl, ulimits, U
 
 To run:
 ```sh
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/vps_optimize.sh)
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/linux/vps_optimize.sh)
 ```
 </details>
 
@@ -106,7 +106,7 @@ Interactive multi-select cleanup for Ubuntu: APT caches, journal logs, trash/tem
 
 To run:
 ```sh
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/fub_clean.sh)
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/linux/fub_clean.sh)
 ```
 </details>
 
@@ -117,7 +117,7 @@ Issues Let's Encrypt certificates for **bare IP addresses** (no domain required)
 
 To run:
 ```sh
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/linux/certbot-kit.sh)
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/linux/certbot-kit.sh)
 ```
 </details>
 
@@ -128,7 +128,7 @@ Backend workflow helper: runs Flyway migrations and repairs, creates migration f
 
 To run:
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/backend/qkbe.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/templates/qkbe.sh)
 ```
 </details>
 
@@ -142,7 +142,7 @@ curl -fsSL http://st.changcomchien.workers.dev/9router | sudo bash
 
 Direct subcommand (note `-s --` — required when passing args via pipe):
 ```sh
-curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_9router.sh | sudo bash -s -- install
+curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/llm/setup_9router.sh | sudo bash -s -- install
 ```
 
 After install, the toolkit installs itself as `/usr/local/bin/9router`, so:
@@ -160,7 +160,7 @@ sudo 9router rollback    # restore previous build
 All-in-one deployment for [CLIProxyAPIPlus](https://github.com/router-for-me/CLIProxyAPIPlus) on Ubuntu/Debian (amd64, arm64): Go binary + Caddy HTTPS + systemd service + UFW rules.
 
 ```sh
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/llm/setup_cliproxy.sh)
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/llm/setup_cliproxy.sh)
 ```
 
 ---
