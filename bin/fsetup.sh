@@ -38,6 +38,7 @@ choice=$(gum choose "🖥️ Install Desktop" \
                     "🗑️ Purge Package" \
                     "👻 Install Ghostty Terminal"\
                     "🔠 Install Nerd Fonts" \
+                    "🔤 Install Google Fonts" \
                     "💾 Create Swap File" \
                     "🛠️ Setup Development Environment")
 
@@ -351,13 +352,33 @@ EOF
 
     "🔠 Install Nerd Fonts")
         gum style --foreground 46 "Running Nerd Font installer..."
-        bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/fonts/nerdfont-installer.sh)
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        if [[ -f "$SCRIPT_DIR/../scripts/fonts/nerdfont-installer.sh" ]]; then
+            bash "$SCRIPT_DIR/../scripts/fonts/nerdfont-installer.sh"
+        else
+            bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/fonts/nerdfont-installer.sh)
+        fi
         ;;
 
+    "🔤 Install Google Fonts")
+        gum style --foreground 46 "Running Google Fonts installer..."
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        if [[ -f "$SCRIPT_DIR/../scripts/fonts/googlefont-installer.sh" ]]; then
+            bash "$SCRIPT_DIR/../scripts/fonts/googlefont-installer.sh"
+        else
+            bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/fonts/googlefont-installer.sh)
+        fi
+        ;;
     "💾 Create Swap File")
         gum style --foreground 46 "Running swap file creation script..."
-        bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/linux/create_swap.sh)
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        if [[ -f "$SCRIPT_DIR/../scripts/linux/create_swap.sh" ]]; then
+            bash "$SCRIPT_DIR/../scripts/linux/create_swap.sh"
+        else
+            bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/linux/create_swap.sh)
+        fi
         ;;
+
 
     "🛠️ Setup Development Environment")
         # Unified dev toolchain via mise (replaces SDKMAN / Volta / FNM)
