@@ -65,6 +65,17 @@ To run:
 bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/fonts/nerdfont-installer.sh)
 ```
 </details>
+<details>
+<summary><code>googlefont-installer.sh</code> - Install Google Fonts</summary>
+
+Interactive TUI installer for Google Fonts with curated developer/UI fonts, custom font search, and granular font variant selection.
+
+To run:
+```sh
+bash <(curl -fsSL https://raw.githubusercontent.com/comchienlab/dotfiles/main/scripts/fonts/googlefont-installer.sh)
+```
+</details>
+
 
 <details>
 <summary><code>create_swap.sh</code> - Create Swap File</summary>
@@ -185,7 +196,7 @@ base/                   shared shell helpers sourced by other scripts
 templates/              starters to copy into a project
 scripts/linux/          Linux system utilities
 scripts/llm/            AI proxy deployment kits
-scripts/fonts/          Nerd Fonts installer
+scripts/fonts/          Font installers (Nerd Fonts, Google Fonts)
 scripts/rclone/         rclone tooling
 config/                 reference configurations (shell, ghostty, zed, mise)
 ```

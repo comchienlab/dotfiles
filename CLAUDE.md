@@ -24,6 +24,7 @@ This is a dotfiles repository containing shell scripts and configuration files f
 - `scripts/linux/debloat.sh` - Remove unnecessary system packages
 - `scripts/rclone/rclone-tool.sh` - Cloud storage management tool installer
 - `scripts/fonts/nerdfont-installer.sh` - Nerd Fonts installer
+- `scripts/fonts/googlefont-installer.sh` - Google Fonts installer
 
 ## Development and Testing
 

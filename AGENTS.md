@@ -64,7 +64,7 @@ User Invocation ──> Dependency Pre-flight (gum, git, package managers)
 | `templates/` | Starters meant to be copied into a project: `qkbe.sh` (Flyway migration runner/repair/creation, conflict resolution, entity scaffolding). |
 | `scripts/linux/` | Linux system utilities: `create_swap.sh` (swap file creation), `debloat.sh` (pre-installed package removal), `vps_optimize.sh` (VPS tuning pipeline), `fub_clean.sh` (interactive cleanup assistant), `certbot-kit.sh` (Let's Encrypt certificates for bare IPs). |
 | `scripts/llm/` | AI proxy deployment kits: `setup_9router.sh` (VPS router with tiered memory tuning, self-diagnostics doctor, systemd service) and `setup_cliproxy.sh` (CLIProxyAPI PLUS installer with Go build and Caddy SSL). |
-| `scripts/fonts/` | Font management: `nerdfont-installer.sh` (queries GitHub release API, downloads selected Nerd Fonts, installs to `~/.local/share/fonts`, rebuilds font cache). |
+| `scripts/fonts/` | Font management: `nerdfont-installer.sh` (queries GitHub release API, downloads selected Nerd Fonts, installs to `~/.local/share/fonts`, rebuilds font cache) and `googlefont-installer.sh` (queries Google Fonts repo, custom search, granular file selection). |
 | `scripts/rclone/` | Cloud storage tooling: `rclone-tool.sh` (interactive TUI for remote browsing, transfer queues, and configuration sync). |
 | `config/` | Reference configurations, never executed: `shell/` (`.zshrc`, `.zshfn`, `starship.toml`), `ghostty/` (`config`, `custom.css`), `zed/` (`settings.json`), and `mise/` (`config.toml` — unified dev toolchain). |
 
@@ -81,6 +81,7 @@ bash fsetup.sh
 # Execute utility scripts
 bash scripts/linux/create_swap.sh
 bash scripts/fonts/nerdfont-installer.sh
+bash scripts/fonts/googlefont-installer.sh
 bash templates/qkbe.sh
 ```
 
@@ -256,6 +257,7 @@ Starters to **copy**, not source:
 - `scripts/linux/certbot-kit.sh`: Let's Encrypt certificate issuance for bare IP addresses via multiple ACME clients.
 - `templates/qkbe.sh`: Backend developer assistant — Flyway migration run/repair/create, conflict resolution, entity scaffolding.
 - `scripts/fonts/nerdfont-installer.sh`: GitHub release scraper and installer for Nerd Fonts.
+- `scripts/fonts/googlefont-installer.sh`: Interactive Google Fonts installer with custom search and granular variant selection.
 - `scripts/llm/setup_9router.sh`: VPS AI proxy router deployment script with tiered tuning and built-in health check diagnostics.
 - `scripts/rclone/rclone-tool.sh`: Rclone cloud storage management utility.
 
